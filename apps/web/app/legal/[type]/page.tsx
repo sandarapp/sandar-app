@@ -1,0 +1,6 @@
+import { notFound } from 'next/navigation';
+export default async function Legal({ params }: {params: Promise<{type: string}>}) {
+  const type = (await params).type;
+  if (!['terms','privacy'].includes(type)) notFound();
+  return <main className="legal"><a href="/register">← Kembali ke pendaftaran</a><p className="eyebrow">KEBIJAKAN CONTOH · DEV-EPIC1-V1</p><h1>{type === 'terms' ? 'Ketentuan penggunaan' : 'Pemberitahuan privasi'}</h1><div className="notice">Ini adalah kebijakan pengembangan untuk menguji persetujuan versi. Bukan dokumen hukum yang disetujui untuk produksi.</div>{type === 'terms' ? <><p>Sandar dirancang untuk orang dewasa 18 tahun ke atas. Sandar bukan layanan diagnosis, pengobatan, atau kegawatdaruratan.</p><p>Prototipe ini hanya menyediakan alur akun. Partisipasi komunitas dan onboarding belum tersedia. Jangan gunakan data pribadi atau kata sandi produksi untuk pengujian.</p></> : <><p>Prototipe akun memproses alamat email, hash kata sandi, persetujuan versi kebijakan, serta sesi dan token keamanan. Tidak ada diagnosis, suasana hati, atau koordinat lokasi yang diminta.</p><p>Email pengembangan disimpan di kotak masuk lokal yang hanya ditujukan untuk pengujian. Data sementara ini harus dibersihkan setelah pengujian. Kebijakan retensi dan penghapusan produksi belum ditetapkan.</p></>}<p>Versi: dev-epic1-v1 · Bahasa: id-ID</p></main>;
+}

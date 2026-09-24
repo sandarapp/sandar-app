@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name":"Sandar", "slug":"sandar-auth", "version":"0.1.0", "scheme":"sandar", "orientation":"portrait", "userInterfaceStyle":"light",
+    "ios":{"bundleIdentifier":"id.sandar.prototype","supportsTablet":true},
+    "android":{"package":"id.sandar.prototype"},
+    "plugins":[["expo-secure-store",{"configureAndroidBackup":true}]],
+    "experiments":{"autolinkingModuleResolution":true}
+  }
+}

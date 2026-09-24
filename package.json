@@ -1,0 +1,68 @@
+{
+  "name": "sandar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "dev": "tsx --env-file=.env apps/api/src/server.ts",
+    "build": "npm run build:api && npm run build:web",
+    "typecheck": "npm run typecheck:api && npm run typecheck:web && npm run typecheck:mobile",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "db:migrate": "tsx --env-file=.env scripts/migrate.ts",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "dev:web": "node --env-file=.env node_modules/next/dist/bin/next dev apps/web --webpack --hostname 127.0.0.1",
+    "dev:mobile": "node --env-file=.env node_modules/expo/bin/cli start apps/mobile --localhost",
+    "email:inbox": "tsx --env-file=.env scripts/email-inbox.ts",
+    "dev:setup": "tsx scripts/setup-dev.ts",
+    "db:seed": "tsx --env-file=.env scripts/seed-auth.ts",
+    "build:api": "tsc -p tsconfig.build.json",
+    "build:web": "next build apps/web --webpack",
+    "typecheck:api": "tsc --noEmit",
+    "typecheck:web": "tsc -p apps/web/tsconfig.json --noEmit",
+    "typecheck:mobile": "tsc -p apps/mobile/tsconfig.json --noEmit",
+    "test:e2e": "playwright test",
+    "test:mobile:bundle": "npm --workspace sandar-mobile run export:check"
+  },
+  "dependencies": {
+    "expo": "^57.0.24",
+    "expo-linking": "~57.0.10",
+    "expo-network": "~57.0.2",
+    "expo-secure-store": "~57.0.4",
+    "fastify": "^5.12.5",
+    "next": "^16.3.5",
+    "pg": "^8.23.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "^0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/react-test-renderer": "^19.3.0",
+    "eslint": "^10.11.0",
+    "react-test-renderer": "^19.2.3",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.1"
+  },
+  "workspaces": [
+    "apps/web",
+    "apps/mobile"
+  ],
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  }
+}

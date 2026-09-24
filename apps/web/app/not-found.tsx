@@ -1,0 +1,1 @@
+export default function NotFound() { return <main className="legal"><p className="eyebrow">SANDAR</p><h1>Halaman tidak tersedia</h1><p>Tautan ini tidak valid atau belum tersedia dalam prototipe autentikasi.</p><a href="/login">Kembali ke masuk</a></main>; }
