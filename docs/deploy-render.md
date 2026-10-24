@@ -12,8 +12,8 @@ For the Google Cloud setup (needs billing) see `deploy-production.md`. The
 
 ## 1. Accounts (you)
 
-1. **Neon** (neon.tech): create project `sandar` in *AWS Asia Pacific
-   (Singapore)*. Copy the **pooled** connection string (ends in
+1. **Neon** (neon.tech): create project `sandar`. Launch uses *AWS US East
+   (Ohio)*; keep the Render service in the same region (`render.yaml`). Copy the **pooled** connection string (ends in
    `?sslmode=require`).
 2. **Resend** (resend.com): Domains → Add `hellosandar.com`. Add the DNS
    records it shows (SPF/DKIM, usually 3) in Cloudflare, then wait for

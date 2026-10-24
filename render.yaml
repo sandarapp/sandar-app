@@ -1,4 +1,4 @@
-# Render Blueprint: one free web service in Singapore. Values marked
+# Render Blueprint: one free web service in Ohio, next to the database. Values marked
 # sync: false are entered once in the Render dashboard and never committed.
 services:
   - type: web
@@ -6,7 +6,8 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile.render
     plan: free
-    region: singapore
+    # Same region as the Neon database (AWS us-east-2, Ohio): every page makes several queries.
+    region: ohio
     healthCheckPath: /login
     envVars:
       - key: NODE_ENV
