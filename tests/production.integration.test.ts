@@ -8,6 +8,7 @@ import { buildApp } from '../apps/api/src/app.js';
 import { digest, newToken } from '../apps/api/src/auth/crypto.js';
 import { renderEmail } from '../apps/api/src/notifications/templates.js';
 import { SmtpEmailProvider } from '../apps/api/src/notifications/smtp-email.js';
+import { ResendEmailProvider } from '../apps/api/src/notifications/resend-email.js';
 import { HumanReviewSafetyClassifier } from '../apps/api/src/spaces/safety.js';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -90,5 +91,23 @@ describe('production email', () => {
     expect(mail.from.address).toBe('hellosandar@zohomail.com');
     expect(mail.subject).toBe('Atur ulang kata sandi Sandar');
     expect(mail.text).toContain('https://app.hellosandar.com/reset-password#token=');
+  });
+
+  it('sends through Resend with an idempotency key and fails without echoing the recipient', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    let status = 200;
+    const fetcher = (async (url: string, init: RequestInit) => { calls.push({ url, init }); return new Response('{}', { status }); }) as unknown as typeof fetch;
+    const provider = new ResendEmailProvider('re_test_key', 'Sandar <noreply@hellosandar.com>', 'https://app.hellosandar.com', fetcher);
+    const id = randomUUID();
+    await provider.send({ id, to: 'member@example.invalid', template: 'VERIFY_EMAIL', token: 'C'.repeat(43) });
+    const headers = calls[0]!.init.headers as Record<string, string>;
+    expect(calls[0]!.url).toBe('https://api.resend.com/emails');
+    expect(headers.authorization).toBe('Bearer re_test_key');
+    expect(headers['idempotency-key']).toBe(id);
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(body).toMatchObject({ from: 'Sandar <noreply@hellosandar.com>', to: ['member@example.invalid'], subject: 'Verifikasi email Sandar Anda' });
+    expect(body.text).toContain('https://app.hellosandar.com/verify-email#token=');
+    status = 422;
+    await expect(provider.send({ to: 'member@example.invalid', template: 'VERIFY_EMAIL', token: 'C'.repeat(43) })).rejects.toThrow(/^Resend rejected the email \(422\)$/);
   });
 });

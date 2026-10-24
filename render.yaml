@@ -1,0 +1,32 @@
+# Render Blueprint: one free web service in Singapore. Values marked
+# sync: false are entered once in the Render dashboard and never committed.
+services:
+  - type: web
+    name: sandar
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    region: singapore
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_BASE_URL
+        value: https://app.hellosandar.com
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: EMAIL_FROM
+        value: Sandar <noreply@hellosandar.com>
+      - key: SAFETY_MODE
+        value: human-review
+      # The API only receives requests from the web app inside the container.
+      - key: TRUST_PROXY_HOPS
+        value: "0"
+      - key: BFF_SHARED_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: DATA_ENCRYPTION_KEY
+        sync: false

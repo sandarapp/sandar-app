@@ -1,0 +1,16 @@
+# Sandar on one free Render service: API (private, 127.0.0.1) + member web app (public $PORT).
+FROM node:22-bookworm-slim
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/mobile/package.json apps/mobile/package.json
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY apps/api apps/api
+COPY apps/web apps/web
+COPY packages packages
+COPY scripts scripts
+COPY tsconfig.json tsconfig.build.json ./
+RUN node node_modules/next/dist/bin/next build apps/web --webpack
+ENV NODE_ENV=production
+USER node
+CMD ["node", "scripts/start-combined.mjs"]

@@ -15,8 +15,12 @@ function allowed(method: string, path: string) {
   if (path.startsWith('web/member/')) return memberRouteAllowed(method,path.slice('web/member/'.length));
   return routes[path] === method;
 }
-// The hosting proxy appends the connecting visitor's address last in X-Forwarded-For.
+// Where the visitor's address comes from depends on the host. VISITOR_IP_HEADER names a
+// header the host's edge sets itself (e.g. cf-connecting-ip); otherwise the hosting proxy
+// appends the connecting address last in X-Forwarded-For (Cloud Run).
 function visitorIp(request: NextRequest) {
+  const named = process.env.VISITOR_IP_HEADER;
+  if (named) return request.headers.get(named)?.trim() || null;
   const chain = request.headers.get('x-forwarded-for')?.split(',').map(part => part.trim()).filter(Boolean);
   return chain?.at(-1) ?? null;
 }
