@@ -1,5 +1,12 @@
+import {addDiscovery} from './discovery/routes.js';
+import {addCommunityRouting} from './community-routing/routes.js';
+import {addMemberHome} from './home/routes.js';
+import type {SafetyClassifier} from './spaces/safety.js';
+import {addSpaces} from './spaces/routes.js';
+import { addOnboarding } from './onboarding/routes.js';
 import Fastify, { LogController, type FastifyServerOptions } from 'fastify';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { isIP } from 'node:net';
 import { ZodError } from 'zod';
 import * as schemas from '../../../packages/contracts/src/auth.js';
 import type { Database } from '../../../packages/database/src/database.js';
@@ -16,18 +23,39 @@ function bearer(value?: string) {
   if (!parsed.success) throw invalidSession();
   return parsed.data;
 }
-export async function buildApp(options: { db: Database; email: EmailProvider; logger?: FastifyServerOptions['logger']; encryptionKey?: string; webOrigin?: string; emailWorker?: boolean }) {
+const sameSecret = (given: unknown, expected: string) => {
+  if (typeof given !== 'string') return false;
+  const a = Buffer.from(given), b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a,b);
+};
+export async function buildApp(options: { db: Database; email: EmailProvider; logger?: FastifyServerOptions['logger']; encryptionKey?: string; webOrigin?: string; emailWorker?: boolean; safety?: SafetyClassifier;
+  /** Proxy hops in front of the API (Cloud Run: 1). 0 trusts no forwarded headers. */
+  trustProxyHops?: number;
+  /** Shared with the web app's BFF so it can pass on the visitor's IP for rate limits. */
+  bffSecret?: string;
+  /** Lets a scheduler drain the email outbox when the host pauses CPU between requests. */
+  emailFlushSecret?: string }) {
   const app = Fastify({
     logger: options.logger ?? false, logController: new LogController({ disableRequestLogging: true }),
     bodyLimit: 8192, requestTimeout: 10000, connectionTimeout: 10000,
-    trustProxy: false, genReqId: () => randomUUID()
+    trustProxy: options.trustProxyHops ? (_address: string,hop: number) => hop < options.trustProxyHops! : false, genReqId: () => randomUUID()
   });
+  // Browser traffic arrives through the web app, so its IP is the BFF's. Only the BFF, holding the secret, may name the visitor.
+  const clientIp = (request: { ip: string; headers: Record<string,unknown> }) => {
+    const forwarded = request.headers['x-sandar-client-ip'];
+    if (options.bffSecret && sameSecret(request.headers['x-sandar-bff'],options.bffSecret) && typeof forwarded === 'string' && isIP(forwarded)) return forwarded;
+    return request.ip;
+  };
   const auth = await AuthService.create(options.db, options.email, () => app.log.error({ event: 'email_delivery_failed' }), options.encryptionKey);
   app.addHook('onRequest', async (request, reply) => {
     reply.header('x-request-id',request.id).header('cache-control','no-store').header('x-content-type-options','nosniff');
     // No auth material in query strings. Only POST bodies and Authorization are accepted.
-    if (request.url.includes('?')) throw new ApiError(400,'INVALID_QUERY','Parameter URL tidak didukung.');
-    if (request.url.startsWith('/v1/auth/') || request.url.startsWith('/v1/web/auth/')) await rateLimit(options.db,`ip:${request.ip}`,60,60);
+    if (request.url.includes('?')) {
+      const url=new URL(request.url,'http://localhost');
+      const directoryQuery=['/v1/locations/cities','/v1/web/member/locations/cities'].includes(url.pathname) && [...url.searchParams.keys()].every(key=>key==='country'||key==='q') && url.searchParams.getAll('country').length===1 && url.searchParams.getAll('q').length<=1;
+      if(!directoryQuery)throw new ApiError(400,'INVALID_QUERY','Parameter URL tidak didukung.');
+    }
+    if (request.url.startsWith('/v1/auth/') || request.url.startsWith('/v1/web/auth/')) await rateLimit(options.db,`ip:${clientIp(request)}`,60,60);
   });
   app.addHook('onResponse', async (request, reply) => {
     app.log.info({ requestId: request.id, route: request.routeOptions.url ?? 'unmatched', method: request.method, statusCode: reply.statusCode, latencyMs: reply.elapsedTime }, 'request_complete');
@@ -78,7 +106,20 @@ export async function buildApp(options: { db: Database; email: EmailProvider; lo
     return ok(await auth.resetPassword(input.token,input.password));
   });
   app.get('/v1/users/me',async request => ok(publicUser(await auth.authenticate(bearer(request.headers.authorization)))));
+  addOnboarding(app,options.db,auth);
+  addSpaces(app,options.db,auth,options.safety);
+  addMemberHome(app,options.db,auth);
+  addDiscovery(app,options.db,auth);
+  addCommunityRouting(app,options.db,auth);
   if (options.webOrigin && options.encryptionKey) await addWebAuth(app,options.db,auth,{ origin: options.webOrigin,encryptionKey: options.encryptionKey });
+  if (options.emailFlushSecret) {
+    const secret = options.emailFlushSecret;
+    app.post('/internal/email/flush',async (request,reply) => {
+      if (!sameSecret(request.headers['x-sandar-cron'],secret)) return reply.code(404).send({ data: null,error: { code: 'NOT_FOUND',message: 'Halaman tidak ditemukan.',field: null } });
+      await auth.flushEmails();
+      return ok({ flushed: true });
+    });
+  }
   if (options.emailWorker) {
     let pending: Promise<void> | undefined;
     const timer = setInterval(() => {

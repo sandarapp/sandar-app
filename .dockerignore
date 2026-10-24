@@ -1,0 +1,12 @@
+# Never ship secrets, local mail, test data or build leftovers in an image.
+.env
+.env.*
+.local
+node_modules
+**/node_modules
+**/.next
+dist
+.git
+tests
+docs
+*.md

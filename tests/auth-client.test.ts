@@ -1,6 +1,6 @@
 import { describe,expect,it,vi } from 'vitest';
 import { NativeAuthClient,WebAuthClient,Transport,ClientError,type TokenStore } from '../packages/auth-client/src/client.js';
-import { parseAuthLink,safeReturnPath } from '../packages/auth-client/src/links.js';
+import { parseAuthLink,parseExpoAuthLink,safeReturnPath } from '../packages/auth-client/src/links.js';
 const token = 'a'.repeat(43), nextToken = 'b'.repeat(43), access = 'c'.repeat(43);
 const user = {id:'sample',email:'sample@example.invalid',accountType:'MEMBER',status:'ONBOARDING_INCOMPLETE',emailVerifiedAt:'2026-09-21'};
 const response = (data: unknown,status=200,code='SERVER_ERROR',headers={}) => new Response(JSON.stringify(status>=400?{data:null,error:{code,message:'safe message',field:null}}:{data,error:null}),{status,headers});
@@ -90,5 +90,28 @@ describe('native credential lifecycle',()=>{
     const client=new NativeAuthClient(new Transport('',{fetcher}),secure.api);
     await expect(client.login(user.email,'example password')).rejects.toBeInstanceOf(ClientError);
     expect(fetcher.mock.calls.some(c=>String(c[0]).endsWith('/auth/logout'))).toBe(true);
+  });
+});
+
+describe('Expo Go development auth links',()=>{
+  const base='exp://127.0.0.1:8081/--/';
+  it.each(['verify-email','reset-password'])('accepts the current app %s fragment',screen=>{
+    expect(parseExpoAuthLink(`${base}${screen}#token=${token}`,base)).toEqual({screen,token});
+  });
+  it.each([
+    `exp://evil.example:8081/--/verify-email#token=${token}`,
+    `exp://127.0.0.1:8082/--/verify-email#token=${token}`,
+    `https://127.0.0.1:8081/--/verify-email#token=${token}`,
+    `exp://user@127.0.0.1:8081/--/verify-email#token=${token}`,
+    `${base}verify-email?token=${token}`,
+    `${base}verify-email#token=${token}&token=${token}`,
+    `${base}verify-email#token=short`,
+    `${base}verify-email`,
+    `${base}verify-email/extra#token=${token}`,
+    `${base}admin#token=${token}`,
+    `exp://127.0.0.1:8081/verify-email#token=${token}`
+  ])('rejects unexpected development URL %s',raw=>expect(parseExpoAuthLink(raw,base)).toBeNull());
+  it('does not enable Expo links for a standalone app base',()=>{
+    expect(parseExpoAuthLink(`${base}verify-email#token=${token}`,'sandar:///')).toBeNull();
   });
 });

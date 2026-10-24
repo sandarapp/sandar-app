@@ -7,7 +7,7 @@ export const registration = z.strictObject({
   consents: z.array(z.strictObject({
     type: z.enum(['TERMS', 'PRIVACY_NOTICE']),
     policyVersion: z.string().min(1).max(80),
-    locale: z.literal('id-ID'),
+    locale: z.enum(['en','id-ID']),
     accepted: z.literal(true)
   })).length(2).refine(items => new Set(items.map(i => i.type)).size === 2)
 });

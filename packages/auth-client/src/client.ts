@@ -4,7 +4,7 @@ export class ClientError extends Error {
   constructor(public code: string, message: string, public status = 0, public retryAfter = 0, public field: string | null = null) { super(message); }
 }
 export interface TokenStore { get(): Promise<string | null>; set(value: string): Promise<void>; remove(): Promise<void> }
-export interface RequestOptions { method?: 'GET' | 'POST'; body?: unknown; accessToken?: string }
+export interface RequestOptions { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; accessToken?: string; locale?: string }
 export class Transport {
   constructor(private baseUrl: string, private options: { web?: boolean; fetcher?: typeof fetch; online?: () => boolean; timeoutMs?: number } = {}) {}
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -15,7 +15,7 @@ export class Transport {
       const response = await (this.options.fetcher ?? fetch)(`${this.baseUrl}${path}`, {
         method: options.method ?? 'GET', signal: controller.signal, cache: 'no-store',
         credentials: this.options.web ? 'same-origin' : 'omit',
-        headers: { ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.accessToken ? { authorization: `Bearer ${options.accessToken}` } : {}), ...(this.options.web ? { 'x-sandar-client': 'web' } : {}) },
+        headers: { ...(options.locale ? {'accept-language':options.locale} : {}), ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.accessToken ? { authorization: `Bearer ${options.accessToken}` } : {}), ...(this.options.web ? { 'x-sandar-client': 'web' } : {}) },
         ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {})
       });
       const data = await response.json().catch(() => null);
@@ -62,6 +62,10 @@ export class WebAuthClient extends CommonAuth {
   session() { return this.transport.request<PublicUser>('/web/auth/session'); }
   async logout() { await this.transport.request('/web/auth/logout',{ method: 'POST',body: {} }); }
 }
+/** Browser client: member calls go through the cookie gateway, never with a token. */
+export class WebMemberClient extends WebAuthClient {
+  memberRequest<T>(path: string, options: RequestOptions = {}) { return this.transport.request<T>(`/web/member${path}`,options); }
+}
 type Tokens = { accessToken: string; refreshToken: string; expiresIn: number };
 export class NativeAuthClient extends CommonAuth {
   private accessToken: string | null = null;
@@ -88,6 +92,8 @@ export class NativeAuthClient extends CommonAuth {
       return null;
     } catch { throw new ClientError('SECURE_STORAGE_ERROR','Tidak dapat membaca penyimpanan aman.'); }
   }
+  async invalidateSession() { await this.exclusive(async()=>{this.accessToken=null;await this.store.remove();}); }
+  async hasSessionMaterial() { return Boolean(await this.stored()); }
   async login(email: string,password: string) {
     return this.exclusive(async () => {
       // A pending offline logout must be reconciled before another login.
@@ -130,6 +136,10 @@ export class NativeAuthClient extends CommonAuth {
       else if (this.accessToken === attempted) await this.refresh();
       return this.transport.request<PublicUser>('/users/me',{ accessToken: this.accessToken! });
     }
+  }
+  async memberRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    await this.session();
+    return this.transport.request<T>(path,{...options,accessToken:this.accessToken!});
   }
   async logout() {
     await this.refreshFlight;

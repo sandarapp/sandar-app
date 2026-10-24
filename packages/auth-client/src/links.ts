@@ -18,3 +18,16 @@ export function parseAuthLink(raw: string, webOrigin: string): AuthLink | null {
 }
 /** Only the implemented authenticated destination can be resumed. No open redirects. */
 export function safeReturnPath(raw: string | null | undefined) { return raw === '/account' ? raw : '/account'; }
+
+/** Expo Go development links are trusted only for the current app's exact base URL. */
+export function parseExpoAuthLink(raw: string, appBase: string): AuthLink | null {
+  try {
+    const url = new URL(raw), base = new URL(appBase);
+    if (!['exp:', 'exps:'].includes(base.protocol) || base.username || base.password || base.search || base.hash || !base.pathname.endsWith('/--/')) return null;
+    if (url.protocol !== base.protocol || url.host !== base.host || url.username || url.password || url.search) return null;
+    if (!url.pathname.startsWith(base.pathname)) return null;
+    const route = url.pathname.slice(base.pathname.length);
+    if (route !== 'verify-email' && route !== 'reset-password') return null;
+    return parseAuthLink(`sandar://${route}${url.hash}`, 'https://unused.invalid');
+  } catch { return null; }
+}

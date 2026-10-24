@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ClientError, type AuthClient, type Policy, type PublicUser } from './client.js';
 import type { AuthScreen } from './links.js';
-export function useAuthFlow(client: AuthClient, initialScreen: AuthScreen, confirmDiscard: () => Promise<boolean>) {
+export function useAuthFlow(client: AuthClient, initialScreen: AuthScreen, confirmDiscard: () => Promise<boolean>, locale = 'id-ID') {
   const [screen,setScreen] = useState<AuthScreen>(initialScreen);
   const [email,setEmail] = useState('');
   const [password,setPassword] = useState('');
@@ -16,7 +16,7 @@ export function useAuthFlow(client: AuthClient, initialScreen: AuthScreen, confi
   const [busy,setBusy] = useState(false);
   const [cooldown,setCooldown] = useState(0);
   const [token,setToken] = useState<string|null>(null);
-  const gate = useRef(false), generation = useRef(0);
+  const gate = useRef(false), generation = useRef(0),policyGeneration=useRef(0);
   const dirty = password.length > 0 || confirmation.length > 0 || (screen === 'register' && (email.length > 0 || terms || privacy));
   const navigate = useCallback(async (next: AuthScreen, force = false) => {
     if (gate.current) return false;
@@ -32,14 +32,14 @@ export function useAuthFlow(client: AuthClient, initialScreen: AuthScreen, confi
     setError(value ? null : new ClientError('TOKEN_INVALID_OR_EXPIRED','Tautan tidak valid atau tidak lengkap. Minta tautan baru.'));
   },[]);
   const loadPolicies = useCallback(async () => {
-    setPolicyLoading(true);
+    const mark=++policyGeneration.current;setPolicyLoading(true);setPolicies([]);
     try {
-      const list = (await client.policies()).filter(p => p.locale === 'id-ID' && ['TERMS','PRIVACY_NOTICE'].includes(p.type));
+      const list = (await client.policies()).filter(p => p.locale === locale && ['TERMS','PRIVACY_NOTICE'].includes(p.type));
       if (list.length !== 2 || new Set(list.map(p => p.type)).size !== 2) throw new ClientError('POLICY_UNAVAILABLE','Kebijakan belum tersedia. Pendaftaran belum dapat dilanjutkan.');
-      setPolicies(list);
+      if(mark===policyGeneration.current)setPolicies(list);
     } catch (failure) { setError(failure instanceof ClientError ? failure : new ClientError('SERVER_ERROR','Kebijakan tidak dapat dimuat.')); }
-    finally { setPolicyLoading(false); }
-  },[client]);
+    finally { if(mark===policyGeneration.current)setPolicyLoading(false); }
+  },[client,locale]);
   useEffect(() => { if (screen === 'register') void loadPolicies(); },[screen,loadPolicies]);
   useEffect(() => { if (cooldown <= 0) return; const timer = setTimeout(() => setCooldown(n => n-1),1000);return () => clearTimeout(timer); },[cooldown]);
   const run = useCallback(async (work: () => Promise<void>) => {
@@ -82,22 +82,23 @@ export function useAuthFlow(client: AuthClient, initialScreen: AuthScreen, confi
     screen === 'verify-email' ? Boolean(token) : false
   );
   const submit = () => run(async () => {
+    const current=generation.current;
     if (!canSubmit) throw new ClientError('VALIDATION_ERROR','Periksa isian yang wajib diisi.');
     if (screen === 'login') {
-      const result = await client.login(email.trim(),password);
+      const result = await client.login(email.trim(),password);if(current!==generation.current)return;
       setPassword('');setConfirmation('');setUser(result);setScreen('account');
     } else if (screen === 'register') {
-      await client.register(accountType,{ email: email.trim(),password,consents: policies.map(p => ({ type: p.type,policyVersion: p.version,locale: p.locale,accepted: true })) });
+      await client.register(accountType,{ email: email.trim(),password,consents: policies.map(p => ({ type: p.type,policyVersion: p.version,locale: p.locale,accepted: true })) });if(current!==generation.current)return;
       setPassword('');setConfirmation('');setScreen('check-email');
       setNotice('Jika permintaan memenuhi syarat, tautan verifikasi akan dikirim ke email Anda.');
     } else if (screen === 'forgot-password') {
-      await client.forgot(email.trim());setNotice('Jika alamat ini memenuhi syarat, kami akan mengirim tautan pengaturan ulang.');
+      await client.forgot(email.trim());if(current!==generation.current)return;setNotice('Jika alamat ini memenuhi syarat, kami akan mengirim tautan pengaturan ulang.');
     } else if (screen === 'check-email') {
-      await client.resend(email.trim());setNotice('Jika permintaan memenuhi syarat, email verifikasi akan dikirim.');
+      await client.resend(email.trim());if(current!==generation.current)return;setNotice('Jika permintaan memenuhi syarat, email verifikasi akan dikirim.');
     } else if (screen === 'verify-email') {
-      await client.verify(token!);setToken(null);setNotice('Email terverifikasi. Silakan masuk untuk melanjutkan.');
+      await client.verify(token!);if(current!==generation.current)return;setToken(null);setNotice('Email terverifikasi. Silakan masuk untuk melanjutkan.');
     } else if (screen === 'reset-password') {
-      await client.reset(token!,password);setToken(null);setPassword('');setConfirmation('');setUser(null);
+      await client.reset(token!,password);if(current!==generation.current)return;setToken(null);setPassword('');setConfirmation('');setUser(null);
       setNotice('Kata sandi diperbarui. Semua sesi sebelumnya telah diakhiri. Silakan masuk kembali.');
     }
   });

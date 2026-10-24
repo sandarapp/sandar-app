@@ -22,5 +22,6 @@
     "tests/**/*.test.tsx",
     "vitest.config.ts",
     "playwright.config.ts"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }

@@ -1,0 +1,15 @@
+# Sandar member web app (Next.js) with its same-origin BFF.
+FROM node:22-bookworm-slim
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/mobile/package.json apps/mobile/package.json
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY apps/web apps/web
+COPY packages packages
+COPY tsconfig.json ./
+RUN node node_modules/next/dist/bin/next build apps/web --webpack
+ENV NODE_ENV=production PORT=8080
+USER node
+EXPOSE 8080
+CMD ["sh", "-c", "exec node node_modules/next/dist/bin/next start apps/web -H 0.0.0.0 -p $PORT"]

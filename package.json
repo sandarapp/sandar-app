@@ -25,7 +25,11 @@
     "typecheck:web": "tsc -p apps/web/tsconfig.json --noEmit",
     "typecheck:mobile": "tsc -p apps/mobile/tsconfig.json --noEmit",
     "test:e2e": "playwright test",
-    "test:mobile:bundle": "npm --workspace sandar-mobile run export:check"
+    "test:mobile:bundle": "npm --workspace sandar-mobile run export:check",
+    "db:seed:spaces": "tsx --env-file=.env scripts/seed-spaces.ts",
+    "start:api": "tsx apps/api/src/server.ts",
+    "db:migrate:prod": "tsx scripts/migrate.ts",
+    "policies:setup": "tsx scripts/setup-policies.ts"
   },
   "dependencies": {
     "expo": "^57.0.24",
@@ -34,6 +38,7 @@
     "expo-secure-store": "~57.0.4",
     "fastify": "^5.12.5",
     "next": "^16.3.5",
+    "nodemailer": "^8.0.11",
     "pg": "^8.23.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -45,6 +50,7 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.4",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

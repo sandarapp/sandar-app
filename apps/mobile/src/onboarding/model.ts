@@ -1,0 +1,11 @@
+export const stepTitles=['Let’s get to know you','Are you 18 or older?','What Sandar is — and isn’t','Support, don’t diagnose','Find local connections','What would you like support around?','How would you like to participate?','Your preferred community format','Your privacy, your choice','Review your choices','You’re all set'] as const;
+export const labels:Record<string,string>={ANXIETY_STRESS:'Anxiety and stress',BURNOUT:'Burnout',OVERWHELMED:'Feeling overwhelmed',LONELINESS:'Loneliness',GRIEF_LOSS:'Grief and loss',RELATIONSHIPS:'Relationships',PARENTING:'Parenting',LIFE_CHANGES:'Life changes',RECOVERY:'Recovery',WORK_PRESSURE:'Work pressure',GENERAL_SUPPORT:'General support',OTHER:'Other',PREFER_NOT_TO_SAY:'Prefer not to say',FIND_COMMUNITIES:'Find communities',READ_QUIETLY:'Read quietly',SHARE_EXPERIENCES:'Share experiences',ATTEND_EVENTS:'Attend events',JOIN_PROGRAMS:'Join programs',LEARN_PEER_SUPPORT:'Learn peer support',STILL_FIGURING_OUT:'Still figuring it out',ONLINE:'Online',LOCAL:'In person',MIXED:'Hybrid',NO_PREFERENCE:'No preference',CONNECTION:'Connection',BE_HEARD:'Being heard',EVERYDAY_STRESS:'Everyday stress support',LIFE_TRANSITIONS:'Life transitions',LISTEN:'Read and listen',SHARE:'Share my experience',LEARN:'Learn',PARTICIPATE:'Join activities'};
+export const semanticFormat={ONLINE:'ONLINE',LOCAL:'IN_PERSON',MIXED:'HYBRID',NO_PREFERENCE:'NO_PREFERENCE'} as const;
+export {resumeStep,selectInterest} from '../../../../packages/auth-client/src/onboarding-flow';
+export interface LocationAdapter {permission():Promise<boolean>;lookup():Promise<{country:string;city:string}|null>}
+export async function coarseLocation(adapter:LocationAdapter,timeout=10000):Promise<{permission:'DENIED'|'GRANTED';place:{country:string;city:string}|null;failed:boolean}>{
+ if(!await adapter.permission())return {permission:'DENIED',place:null,failed:false};
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ try{const place=await Promise.race([adapter.lookup(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('timeout')),timeout);})]);return {permission:'GRANTED',place,failed:!place};}
+ catch{return {permission:'GRANTED',place:null,failed:true};}finally{clearTimeout(timer);}
+}

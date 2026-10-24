@@ -23,3 +23,8 @@ test-results/
 *.log
 npm-debug.log*
 .local/
+
+# Next.js build output and generated types
+.next/
+*.tsbuildinfo
+next-env.d.ts

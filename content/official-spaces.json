@@ -1,0 +1,50 @@
+{
+  "_note": "Launch content for the official Sandar spaces. Draft copy: review with the safety lead before running scripts/setup-official-spaces.ts.",
+  "spaces": [
+    {
+      "key": "work-stress",
+      "name": "Stres Kerja & Burnout",
+      "purpose": "Tempat berbagi soal capek kerja, susah lepas dari kantor, dan pelan-pelan cari ritme yang lebih sehat.",
+      "audience": "Orang dewasa yang lagi berat di pekerjaan atau kuliah.",
+      "topic": "Kerja & hidup",
+      "topics": ["BURNOUT", "WORK_PRESSURE", "ANXIETY_STRESS"],
+      "posts": [
+        "Selamat datang di ruang ini. Di sini kamu boleh baca dulu tanpa harus cerita apa-apa. Kalau ada yang terasa dekat, kirim Dukung atau Relate.",
+        "Pertanyaan minggu ini: hal kecil apa yang membantumu berhenti mikirin kerjaan di malam hari?"
+      ]
+    },
+    {
+      "key": "overwhelmed",
+      "name": "Merasa Kewalahan",
+      "purpose": "Untuk hari-hari saat semuanya terasa terlalu banyak. Pelan-pelan saja.",
+      "audience": "Orang dewasa yang butuh tempat tenang untuk berhenti sebentar.",
+      "topic": "Dukungan sehari-hari",
+      "topics": ["OVERWHELMED", "GENERAL_SUPPORT"],
+      "posts": [
+        "Selamat datang. Kalau hari ini berat, kamu nggak perlu menjelaskan apa-apa di sini. Membaca saja sudah cukup."
+      ]
+    },
+    {
+      "key": "loneliness",
+      "name": "Kesepian & Terhubung",
+      "purpose": "Untuk yang lagi merasa sendirian, dan ingin pelan-pelan terhubung lagi.",
+      "audience": "Orang dewasa yang mencari percakapan yang hangat dan saling menghargai.",
+      "topic": "Koneksi",
+      "topics": ["LONELINESS", "RELATIONSHIPS"],
+      "posts": [
+        "Selamat datang. Banyak orang di ruang ini juga pernah merasa sendirian. Kamu nggak sendiri di sini."
+      ]
+    },
+    {
+      "key": "transitions",
+      "name": "Masa Transisi",
+      "purpose": "Pindah kota, ganti kerja, babak baru. Ruang untuk ngobrolin perubahan sesuai ritmemu.",
+      "audience": "Orang dewasa yang sedang melewati perubahan besar.",
+      "topic": "Babak baru",
+      "topics": ["LIFE_CHANGES"],
+      "posts": [
+        "Selamat datang. Perubahan, sekecil apa pun, bisa terasa berat. Ruang ini untuk melewatinya bareng-bareng."
+      ]
+    }
+  ]
+}

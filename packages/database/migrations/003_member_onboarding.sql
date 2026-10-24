@@ -1,0 +1,23 @@
+CREATE TABLE member_profiles (
+ user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+ display_name varchar(80),
+ language varchar(12) NOT NULL DEFAULT 'id-ID',
+ age_confirmed_at timestamptz,
+ boundaries_version varchar(80),
+ country char(2), city varchar(100),
+ location_source text CHECK (location_source IN ('SKIPPED','MANUAL','DEVICE')),
+ location_permission text CHECK (location_permission IN ('NOT_REQUESTED','GRANTED','DENIED')),
+ needs text[] NOT NULL DEFAULT '{}', goals text[] NOT NULL DEFAULT '{}',
+ community_type text CHECK (community_type IN ('NO_PREFERENCE','ONLINE','LOCAL','MIXED')),
+ preferences_saved_at timestamptz,
+ profile_visibility text NOT NULL DEFAULT 'HIDDEN' CHECK (profile_visibility IN ('HIDDEN','MEMBERS')),
+ directory_visibility text NOT NULL DEFAULT 'HIDDEN' CHECK (directory_visibility IN ('HIDDEN','DISPLAY_NAME')),
+ allow_anonymous_posting boolean NOT NULL DEFAULT true,
+ privacy_saved_at timestamptz,
+ onboarding_completed_at timestamptz,
+ created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+ CHECK (location_source IS DISTINCT FROM 'SKIPPED' OR (country IS NULL AND city IS NULL)),
+ CHECK (location_source NOT IN ('MANUAL','DEVICE') OR (country IS NOT NULL AND city IS NOT NULL)),
+ CHECK (needs <@ ARRAY['CONNECTION','BE_HEARD','EVERYDAY_STRESS','LIFE_TRANSITIONS']::text[]),
+ CHECK (goals <@ ARRAY['LISTEN','SHARE','LEARN','PARTICIPATE']::text[])
+);

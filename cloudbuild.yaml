@@ -1,0 +1,14 @@
+# Builds both images into Artifact Registry. Run from the repo root:
+#   gcloud builds submit --config cloudbuild.yaml --substitutions=_REGION=asia-southeast1,_TAG=$(git rev-parse --short HEAD)
+substitutions:
+  _REGION: asia-southeast1
+  _REPO: sandar
+  _TAG: latest
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'Dockerfile.api', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:${_TAG}', '.']
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-f', 'Dockerfile.web', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:${_TAG}', '.']
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:${_TAG}'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:${_TAG}'
