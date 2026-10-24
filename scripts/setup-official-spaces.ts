@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { Pool, transaction } from '../packages/database/src/database.js';
+import { Pool, connection, transaction } from '../packages/database/src/database.js';
 import { discoveryTopics } from '../packages/contracts/src/discovery.js';
 
 // Creates or updates the official Sandar spaces and their opening team posts
@@ -21,7 +21,7 @@ const stableId = (seed: string) => {
   const h = createHash('sha256').update(`sandar:${seed}`).digest('hex');
   return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-8${h.slice(17,20)}-${h.slice(20,32)}`;
 };
-const db = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = new Pool(connection(process.env.DATABASE_URL ?? ''));
 try {
   await transaction(db,async tx => {
     for (const space of content.spaces) {

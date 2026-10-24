@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Pool } from '../../../packages/database/src/database.js';
+import { Pool, connection } from '../../../packages/database/src/database.js';
 import { buildApp } from './app.js';
 import { DevelopmentEmailProvider } from './notifications/development-email.js';
 import { SmtpEmailProvider } from './notifications/smtp-email.js';
@@ -35,7 +35,7 @@ const config = z.object({
 }).parse(process.env);
 
 const production = config.NODE_ENV === 'production';
-const db = new Pool({ connectionString: config.DATABASE_URL, max: production ? 5 : 10, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
+const db = new Pool({ ...connection(config.DATABASE_URL), max: production ? 5 : 10, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
 const email = config.EMAIL_PROVIDER === 'resend'
   ? new ResendEmailProvider(config.RESEND_API_KEY!,config.EMAIL_FROM!,config.APP_BASE_URL)
   : config.EMAIL_PROVIDER === 'smtp'

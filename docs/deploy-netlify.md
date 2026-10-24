@@ -16,17 +16,28 @@ pauses after 7 days with no activity; restore it from the dashboard.
 2. Project Settings → Data API: turn the Data API **off** (Sandar talks to
    Postgres directly; nothing should be reachable with the public key).
 3. Connect → Connection String → **Session pooler** → copy.
+4. Database → Settings → SSL Configuration → **Download certificate**
+   (`prod-ca-2021.crt`). Check it is the CA the pooler presents:
+   `openssl x509 -in prod-ca-2021.crt -noout -fingerprint -sha256` must match
+   the last certificate from
+   `openssl s_client -starttls postgres -connect <pooler host>:5432 -showcerts`.
 
 ## 2. Database (me, from the laptop)
 
 ```bash
-# DATABASE_URL in a git-ignored .env.supabase file
+# DATABASE_URL in a git-ignored .env.supabase file; the CA in .local/supabase-ca.crt
+export DATABASE_CA_CERT="$(cat .local/supabase-ca.crt)"
 node_modules/.bin/tsx --env-file=.env.supabase scripts/migrate.ts
-POLICY_VERSION=2026-11-launch node_modules/.bin/tsx --env-file=.env.supabase scripts/setup-official-spaces.ts
 SITE_URL=https://hellosandar.com POLICY_VERSION=2026-11-launch node_modules/.bin/tsx --env-file=.env.supabase scripts/setup-policies.ts --legal-approved
+POLICY_VERSION=2026-11-launch node_modules/.bin/tsx --env-file=.env.supabase scripts/setup-official-spaces.ts
 ```
 Then revoke the Data API roles on Sandar's tables as a second lock:
-`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;`
+`REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;` (and the
+same for `SEQUENCES` and `FUNCTIONS`).
+
+With `DATABASE_CA_CERT` set, the server certificate is always verified against
+it, and SSL settings in `DATABASE_URL` (such as `sslmode=require`) are ignored.
+Never work around a certificate error by turning verification off.
 
 ## 3. Netlify site (you, with me)
 
@@ -43,6 +54,7 @@ Then revoke the Data API roles on Sandar's tables as a second lock:
 | `EMAIL_FROM` | `Sandar <noreply@hellosandar.com>` |
 | `VISITOR_IP_HEADER` | `x-nf-client-connection-ip` |
 | `DATABASE_URL` | Supabase session pooler string (secret) |
+| `DATABASE_CA_CERT` | full contents of `prod-ca-2021.crt`, BEGIN to END lines (not secret, but must be exact) |
 | `DATA_ENCRYPTION_KEY` | from `.local/data-encryption-key.txt` (secret) |
 | `RESEND_API_KEY` | Resend key with sending access (secret) |
 
