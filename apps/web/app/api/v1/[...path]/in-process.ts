@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import { Pool } from '../../../../../../packages/database/src/database';
+import { Pool, connection } from '../../../../../../packages/database/src/database';
 import { buildApp } from '../../../../../api/src/app';
 import { ResendEmailProvider } from '../../../../../api/src/notifications/resend-email';
 import { HumanReviewSafetyClassifier } from '../../../../../api/src/spaces/safety';
@@ -23,7 +23,7 @@ function required(name: string) {
 let api: Promise<FastifyInstance> | null = null;
 function instance() {
   api ??= (async () => buildApp({
-    db: new Pool({ connectionString: required('DATABASE_URL'), max: 3, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, statement_timeout: 5000 }),
+    db: new Pool({ ...connection(required('DATABASE_URL')), max: 3, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, statement_timeout: 5000 }),
     email: new ResendEmailProvider(required('RESEND_API_KEY'), required('EMAIL_FROM'), required('APP_BASE_URL')),
     encryptionKey: required('DATA_ENCRYPTION_KEY'),
     webOrigin: required('APP_BASE_URL'),

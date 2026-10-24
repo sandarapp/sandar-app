@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Pool, transaction } from '../packages/database/src/database.js';
+import { Pool, connection, transaction } from '../packages/database/src/database.js';
 
 // Activates the public policy documents (hosted on the website) for one version.
 // Members must accept the active Terms and Privacy Notice at sign-up and the
@@ -12,7 +12,7 @@ if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.h
 if (!/^[a-z0-9][a-z0-9.-]{2,79}$/.test(version)) throw new Error('POLICY_VERSION must match the version shown on the website, e.g. 2026-11-launch');
 const pages = { TERMS: '/terms',PRIVACY_NOTICE: '/privacy',COMMUNITY_GUIDELINES: '/guidelines' } as const;
 
-const db = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = new Pool(connection(process.env.DATABASE_URL ?? ''));
 try {
   await transaction(db,async tx => {
     for (const [type,path] of Object.entries(pages)) for (const locale of ['en','id-ID']) {
