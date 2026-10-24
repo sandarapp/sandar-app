@@ -8,6 +8,7 @@ import {ClientError,type NativeAuthClient} from '../../../../packages/auth-clien
 import {guidelines,type Space,type SpacePost,type SpaceComment} from '../../../../packages/contracts/src/spaces';
 import type {OnboardingState} from '../../../../packages/contracts/src/onboarding';
 import {copy} from './copy';
+import officialSpaceImage from '../../assets/official-space.png';
 import {MemberHomeScreen} from '../home/MemberHomeScreen';
 import type {HomeTarget} from '../home/model';
 type Screen='home'|'discover'|'space'|'guidelines'|'feed'|'compose'|'detail'|'report'|'events'|'notifications'|'profile';
@@ -115,12 +116,12 @@ export function SpacesApp({client,state,onLogout,onSessionExpired,initialDestina
      <View style={s.search}>{icon('search-outline',18)}<TextInput accessibilityLabel="Search spaces" value={search} onChangeText={setSearch} placeholder="Search spaces or topics" placeholderTextColor="#806b60" style={s.searchInput}/></View>
      {String(screen)==='home'&&<View style={s.participation}><Text style={s.strong}>How would you like to participate today?</Text><View style={s.wrap}>{['Read quietly',"Share what’s on my mind",'Find a support space'].map(label=><Pressable key={label} accessibilityRole="button" onPress={()=>{go('discover');setNotice(label==='Read quietly'?'You can join a space and simply read. Sharing is always optional.':label.startsWith('Share')?'Choose a space before sharing your experience.':'Browse spaces at your own pace.');}} style={s.chip}><Text style={s.chipText}>{label}</Text></Pressable>)}</View></View>}
      <Text style={s.heading}>Official Sandar Spaces</Text>
-     {spaces.filter(x=>(x.name+' '+x.topic).toLowerCase().includes(search.toLowerCase())).map(x=><Pressable key={x.id} accessibilityRole="button" accessibilityLabel={x.name} onPress={()=>openSpace(x)} style={s.spaceCard}><Image source={require('../../assets/official-space.png')} accessibilityIgnoresInvertColors style={s.thumbnail}/><View style={s.flex}><Text style={s.strong}>{x.name}</Text>{note(x.purpose)}{badge}<Text style={s.small}>{x.topic} · {x.membership==='JOINED'?'Joined':'Online'}</Text></View>{icon('chevron-forward',18)}</Pressable>)}
+     {spaces.filter(x=>(x.name+' '+x.topic).toLowerCase().includes(search.toLowerCase())).map(x=><Pressable key={x.id} accessibilityRole="button" accessibilityLabel={x.name} onPress={()=>openSpace(x)} style={s.spaceCard}><Image source={officialSpaceImage} accessibilityIgnoresInvertColors style={s.thumbnail}/><View style={s.flex}><Text style={s.strong}>{x.name}</Text>{note(x.purpose)}{badge}<Text style={s.small}>{x.topic} · {x.membership==='JOINED'?'Joined':'Online'}</Text></View>{icon('chevron-forward',18)}</Pressable>)}
      {!spaces.filter(x=>(x.name+' '+x.topic).toLowerCase().includes(search.toLowerCase())).length&&note('No spaces found. Try another topic or return later.')}
      {spaces.some(x=>x.developmentSample)&&note(copy.sample)}
     </>}
     {space&&!['home','discover','profile','events','notifications'].includes(screen)&&(restricted?<View style={s.state}>{icon('lock-closed-outline',42)}{title('This space is temporarily unavailable')}{note('Please check back later, or find another support space.')}{button('Explore other spaces',()=>go('discover'))}</View>:<>
-     {screen==='space'&&<Image source={require('../../assets/official-space.png')} style={s.hero} accessibilityLabel="Illustration of adults listening together"/>}
+     {screen==='space'&&<Image source={officialSpaceImage} style={s.hero} accessibilityLabel="Illustration of adults listening together"/>}
      {screen!=='compose'&&screen!=='report'&&<>{badge}{title(space.name)}{tabs}</>}
      {screen==='space'&&<>
       {note(space.purpose)}<Text style={s.heading}>Who this is for</Text>{note(space.audience)}

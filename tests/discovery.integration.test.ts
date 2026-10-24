@@ -9,7 +9,6 @@ if(!url||new URL(url).hostname!=='localhost'||new URL(url).pathname!=='/sandar_d
 const db=new Pool({connectionString:url}),app=await buildApp({db,email:{send:async()=>{}}});
 let userId:string,otherId:string,spaceId:string,access:string;
 const req=(path:string,body?:unknown)=>app.inject({method:body===undefined?'GET':'POST',url:'/v1'+path,headers:{authorization:'Bearer '+access},...(body===undefined?{}:{payload:body as Record<string,unknown>})});
-const home=async()=>{const r=await req('/home');expect(r.statusCode).toBe(200);return r.json().data;};
 const join=()=>req('/spaces/'+spaceId+'/join',{accepted:true,guidelinesVersion:'test-v1'});
 async function fixture(email:string){const id=randomUUID();await db.query("INSERT INTO users(id,email,password_hash,account_type,status,email_verified_at) VALUES($1,$2,'unused','MEMBER','ACTIVE',now())",[id,email]);await db.query("INSERT INTO member_profiles(user_id,display_name,onboarding_completed_at) VALUES($1,'Home Member',now())",[id]);return id;}
 async function post(author=otherId){const id=randomUUID();await db.query("INSERT INTO space_posts(id,space_id,author_user_id,identity_mode,body,request_id) VALUES($1,$2,$3,'ANONYMOUS','Sensitive private text',$4)",[id,spaceId,author,randomUUID()]);return id;}
