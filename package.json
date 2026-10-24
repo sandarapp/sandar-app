@@ -31,7 +31,7 @@
     "db:migrate:prod": "tsx scripts/migrate.ts",
     "policies:setup": "tsx scripts/setup-policies.ts",
     "test:unit": "vitest run --exclude 'tests/*.integration.test.ts' --exclude 'tests/e2e/**'",
-    "test:screens": "for c in vitest.*.config.ts; do vitest run -c $c || exit 1; done",
+    "test:screens": "for c in vitest.*.config.ts; do vitest run -c $c --exclude 'tests/*.integration.test.ts' || exit 1; done",
     "test:integration": "bash scripts/test-integration.sh",
     "ci": "npm run lint && npm run typecheck && npm run test:unit && npm run test:screens && npm run test:integration && npm run build:web"
   },
