@@ -1,0 +1,12 @@
+# Member web app on Netlify (free plan). The Sandar API runs inside the web
+# app (SANDAR_API_MODE=in-process); secrets are set in the Netlify UI only.
+# In the Netlify UI: Base directory = (repo root), Package directory = apps/web.
+[build]
+  command = "npm run build:web"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+  # The mobile workspace's install scripts are not needed for the web build.
+  NPM_FLAGS = "--ignore-scripts"
