@@ -47,15 +47,32 @@ async function proxy(request: NextRequest, context: {params: Promise<{path: stri
   }
   const language = request.headers.get('accept-language');
   const secret = process.env.BFF_SHARED_SECRET, ip = visitorIp(request);
+  const forwarded: Record<string,string> = {
+    ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+    ...(language === 'en' || language === 'id-ID' ? { 'accept-language': language } : {}),
+    origin,'x-sandar-client': 'web', ...(path.startsWith('web/') ? { cookie: request.headers.get('cookie') ?? '' } : {})
+  };
+  if (process.env.SANDAR_API_MODE === 'in-process') {
+    try {
+      // The API runs inside this app (serverless hosts such as Netlify); it vouches for the visitor IP itself.
+      const { callInProcess } = await import('./in-process');
+      const response = await callInProcess({ method: request.method as 'GET'|'POST'|'PATCH'|'DELETE',path,search: request.nextUrl.search,headers: forwarded,body,visitorIp: ip });
+      const headers = new Headers({ 'content-type': 'application/json','cache-control': 'no-store' });
+      for (const name of ['set-cookie','retry-after','x-request-id']) {
+        const value = response.headers[name];
+        for (const item of Array.isArray(value) ? value : value === undefined ? [] : [String(value)]) headers.append(name,item);
+      }
+      return new Response(response.payload,{ status: response.statusCode,headers });
+    } catch (error) {
+      // Name and message only: never request data, which can hold personal details.
+      console.error('in_process_api_failed',error instanceof Error ? `${error.name}: ${error.message}` : 'unknown');
+      return failure(503,'SERVER_UNAVAILABLE','Layanan belum dapat dihubungi. Coba lagi nanti.');
+    }
+  }
   try {
     const response = await fetch(`${process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:3001'}/v1/${path}${request.nextUrl.search}`, {
       method: request.method,body,cache: 'no-store',signal: AbortSignal.timeout(8000),
-      headers: {
-        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-        ...(language === 'en' || language === 'id-ID' ? { 'accept-language': language } : {}),
-        origin,'x-sandar-client': 'web', ...(path.startsWith('web/') ? { cookie: request.headers.get('cookie') ?? '' } : {}),
-        ...(secret && ip ? { 'x-sandar-bff': secret,'x-sandar-client-ip': ip } : {})
-      }
+      headers: { ...forwarded,...(secret && ip ? { 'x-sandar-bff': secret,'x-sandar-client-ip': ip } : {}) }
     });
     const headers = new Headers({ 'content-type': 'application/json','cache-control': 'no-store' });
     for (const name of ['set-cookie','retry-after','x-request-id']) { const value = response.headers.get(name);if (value) headers.set(name,value); }

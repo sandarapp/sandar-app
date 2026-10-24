@@ -28,3 +28,6 @@ npm-debug.log*
 .next/
 *.tsbuildinfo
 next-env.d.ts
+
+# Netlify local state
+.netlify/
