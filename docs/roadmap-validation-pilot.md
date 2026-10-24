@@ -479,8 +479,9 @@ idempotent server-side webhook.
 ### Seller
 
 In this pilot the seller of every paid offer is **Sandar** (the operating legal
-entity, named in full). Communities may host or refer, and are named as such,
-but are not sellers, because community payouts and splits are not built. The
+entity, named in full). The training partner is never a seller and is not named
+in the product (owner decision, 25 Oct 2026). Communities may host or refer,
+and are named as such, but are not sellers, because community payouts and splits are not built. The
 seller and the refund policy version are shown before payment and stored on
 the order.
 
@@ -759,28 +760,26 @@ date. It contains counts only, never personal data or case details.
 
 ## Open questions for the owner
 
-1. **Seller and training partner wording** in `roadmap-to-payments.md`:
-   pending your answer (asked before editing).
-2. Is V3's seller always Sandar in the pilot (this plan's assumption), or must a
+1. Is V3's seller always Sandar in the pilot (this plan's assumption), or must a
    community be able to sell? Community as seller needs payouts, which are
    deferred.
-3. Organisation-paid seats: invoice outside the product and grant seats by an
+2. Organisation-paid seats: invoice outside the product and grant seats by an
    audited staff script (conflicts with hard rule 3, which allows paid access
    only from a verified webhook), or use the gateway's payment link so a
    webhook still grants access, or leave organisation purchases out of the
    pilot?
-4. G1: minimum share per channel (proposed: each counted channel ≥ 20% of paid
+3. G1: minimum share per channel (proposed: each counted channel ≥ 20% of paid
    seats, so one stray sale doesn't count as a channel)?
-5. G2: count free cohorts, paid cohorts or both? (Plan reports both.)
-6. G4: SLA values (proposed: high-risk acknowledged ≤ 1 hour during
+4. G2: count free cohorts, paid cohorts or both? (Plan reports both.)
+5. G4: SLA values (proposed: high-risk acknowledged ≤ 1 hour during
    published session hours, ≤ 12 hours otherwise; handled ≤ 24 hours) and the
    definition of a role-boundary violation.
-7. Pilot operations by `ops:` scripts with database access, or a small staff
+6. Pilot operations by `ops:` scripts with database access, or a small staff
    web page?
-8. Refund policy v1 terms (window, partial refunds after session 1?).
-9. Which gateway (Midtrans or Xendit), and whose legal entity is the seller?
-10. Who writes and approves the intake questionnaire and the facilitator role
-    boundaries (safety lead)?
+7. Refund policy v1 terms (window, partial refunds after session 1?).
+8. Which gateway (Midtrans or Xendit), and whose legal entity is the seller?
+9. Who writes and approves the intake questionnaire and the facilitator role
+   boundaries (safety lead)?
 
 ## Remaining risks
 

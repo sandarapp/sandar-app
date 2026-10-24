@@ -78,13 +78,17 @@ Done when: communities and Sandar run free events end to end.
 Legal and operational groundwork comes first; none of it is code.
 1. Company and compliance: PSE registration with Kominfo (private scope),
    tax setup for PPN on digital services, refund and cancellation policy,
-   payment terms for communities and the training partner (never named in the
-   product), updated Privacy Notice.
+   payment terms for communities and the training partner, updated Privacy
+   Notice. Every seller (Sandar or the named community) and the refund policy
+   version are shown to the buyer before payment; there are no hidden or
+   unnamed sellers. The training partner is never a seller and is not named in
+   the product; if it ever becomes a seller, it must be named to the buyer as
+   the seller before payment.
 2. Payment gateway: choose Midtrans or Xendit (QRIS, virtual accounts,
    e-wallets, cards); open a merchant account; sandbox keys.
-3. Catalogue: paid programs and trainings with price, seller (Sandar, a
-   verified community, or Sandar selling partner training) and refund terms
-   shown before payment. Turn on `ENABLE_PAID_PROGRAMS` per product.
+3. Catalogue: paid programs and trainings with price, named seller (Sandar
+   or a verified community; partner training is sold by Sandar) and refund
+   policy version shown before payment. Turn on `ENABLE_PAID_PROGRAMS` per product.
 4. Checkout and orders: hosted checkout, idempotent webhooks, order and
    enrollment records, receipts by email, failed and expired payments.
 5. Refunds: member request, review in the CMS, gateway refund, audit trail.
