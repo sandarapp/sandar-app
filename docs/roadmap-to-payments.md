@@ -1,5 +1,12 @@
 # Roadmap: from launch to payments
 
+> **Note (25 Oct 2026):** after Phase 1, the phase order below is superseded by
+> [roadmap-validation-pilot.md](roadmap-validation-pilot.md). The 8-week
+> validation pilot (to 27 Dec 2026) builds funnel instrumentation, free
+> Komunitas Pendiri activities, member payment for programmes and a Community
+> Plus interest page. The remaining phases here are deferred, each with the
+> evidence gate listed in that document.
+
 Each phase ships on its own and has a clear "done when". A phase starts only
 when the one before it is live, because each depends on the trust and tools
 the previous one builds. Payments come last on purpose: money raises the
