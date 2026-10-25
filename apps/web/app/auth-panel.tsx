@@ -4,18 +4,19 @@ import { WebMemberClient,Transport,type Policy } from '../../../packages/auth-cl
 import { resolveDestination,type CommunityStatus } from '../../../packages/auth-client/src/destination';
 import { useAuthFlow } from '../../../packages/auth-client/src/use-auth-flow';
 import { parseAuthLink, type AuthScreen } from '../../../packages/auth-client/src/links';
+import { authErrorText, LangSwitch, noticeText, useLang } from './i18n';
 
-const titles: Record<AuthScreen,string> = { login: 'Selamat datang kembali.',register: 'Mulai dari percakapan kecil.', 'check-email': 'Periksa email Anda.', 'verify-email': 'Konfirmasikan email Anda.', 'forgot-password': 'Mari pulihkan akses Anda.', 'reset-password': 'Buat kata sandi baru.',account: 'Anda sudah masuk.' };
-const subtitles: Record<AuthScreen,string> = { login: 'Masuk ke akun Anda. Satu langkah menuju hari yang lebih baik.',register: 'Buat akun Sandar. Ruang untuk didengar, tanpa harus menjadi siapa-siapa.', 'check-email': 'Buka tautan verifikasi di email untuk mengonfirmasi alamat Anda.', 'verify-email': 'Tautan tidak digunakan sampai Anda memilih verifikasi.', 'forgot-password': 'Masukkan email akun Anda. Kami akan mengirim langkah berikutnya.', 'reset-password': 'Pilih kata sandi unik yang tidak digunakan di layanan lain.',account: 'Status di bawah diperiksa langsung oleh server.' };
-const communityStatus: Record<CommunityStatus,string> = { DRAFT: 'Belum dikirim',SUBMITTED: 'Terkirim',UNDER_REVIEW: 'Sedang ditinjau',NEEDS_MORE_INFORMATION: 'Perlu info tambahan',APPROVED: 'Disetujui',REJECTED: 'Belum disetujui' };
+const screens: AuthScreen[] = ['login','register','check-email','verify-email','forgot-password','reset-password','account'];
 /** Policy pages live wherever the active policy says; fall back to the app's own copy. */
 function policyUrl(policies: Policy[],type: Policy['type']) {
   const url = policies.find(p => p.type === type)?.contentUrl;
   return url && /^https?:\/\//.test(url) ? url : type === 'TERMS' ? '/legal/terms' : '/legal/privacy';
 }
 export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
+  const { lang,t } = useLang();
   const client = useMemo(() => new WebMemberClient(new Transport('/api/v1',{ web: true,online: () => navigator.onLine })),[]);
-  const confirmDiscard = useCallback(async () => window.confirm('Buang isian yang belum dikirim? Kata sandi tidak akan disimpan.'),[]);
+  const discardText = useRef(t('auth.discard'));discardText.current = t('auth.discard');
+  const confirmDiscard = useCallback(async () => window.confirm(discardText.current),[]);
   const flow = useAuthFlow(client,initialScreen,confirmDiscard);
   const flowRef = useRef(flow);flowRef.current = flow;
   const linkHandled = useRef(false);
@@ -40,7 +41,7 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
     if (window.location.pathname === '/login') void flowRef.current.restoreSession();
     const pop = async () => {
       const path = window.location.pathname.slice(1) as AuthScreen;
-      const accepted = await flowRef.current.navigate(Object.hasOwn(titles,path) ? path : 'login');
+      const accepted = await flowRef.current.navigate(screens.includes(path) ? path : 'login');
       if (!accepted) window.history.pushState(null,'',`/${flowRef.current.screen}`);
       else { linkHandled.current = false;applyLink(); }
     };
@@ -64,45 +65,62 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
     return () => { active = false; };
   },[flow.screen,flow.user,client]);
   const go = (screen: AuthScreen) => { void flow.navigate(screen); };
-  const needsEmail = ['login','register','forgot-password','check-email'].includes(flow.screen);
-  const needsPassword = ['login','register','reset-password'].includes(flow.screen);
-  const newPassword = ['register','reset-password'].includes(flow.screen);
-  const success = Boolean(flow.notice) && ['verify-email','reset-password'].includes(flow.screen) && !flow.token;
-  return <main className="auth-layout">
-    <aside className="brand-panel" aria-label="Tentang Sandar">
-      <a className="brand" href="/login" onClick={event => { event.preventDefault();go('login'); }}><span className="sun-mark" aria-hidden="true">◒</span> Sandar<span>Real People. Brighter Days.</span></a>
-      <div className="brand-story"><p className="eyebrow">RUANG UNTUK MENJADI DIRIMU</p><h1>Percakapan kecil.<br/>Hari esok yang<br/><em>lebih cerah.</em></h1><p>Tidak semua hal harus dijalani sendiri.<br/>Mulai dengan ruang yang mau mendengar.</p><div className="values"><span>◇ Saling menghargai</span><span>♡ Saling mendukung</span></div></div>
-      <div className="landscape" aria-hidden="true"><span className="sun"/><span className="ridge ridge-back"/><span className="ridge ridge-front"/><span className="water"/></div>
-      <p className="brand-footer">Orang nyata. Percakapan bermakna.</p>
+  const screen = flow.screen;
+  const needsEmail = ['login','register','forgot-password','check-email'].includes(screen);
+  const needsPassword = ['login','register','reset-password'].includes(screen);
+  const newPassword = ['register','reset-password'].includes(screen);
+  const success = Boolean(flow.notice) && ['verify-email','reset-password'].includes(screen) && !flow.token;
+  const step = screen === 'register' ? t('auth.step.register') : ['check-email','verify-email'].includes(screen) ? t('auth.step.verify') : screen === 'login' ? t('auth.step.login') : t('auth.step.other');
+  const title = success ? screen === 'verify-email' ? t('auth.title.verified') : t('auth.title.passwordUpdated') : t(`auth.title.${screen}`);
+  return <main className="auth">
+    <aside className="auth-brand" aria-label={t('auth.about')}>
+      <a className="wordmark serif" href="/login" onClick={event => { event.preventDefault();go('login'); }}>Sandar</a>
+      <p className="kicker">{t('auth.kicker')}</p>
+      <p className="auth-headline serif">{t('auth.headline')} <em>{t('auth.headlineEm')}</em>.</p>
+      <p className="auth-lead">{t('auth.lead')}</p>
+      <div className="scene" aria-hidden="true"><span className="sun"/><span className="ridge"/><span className="ridge ridge2"/></div>
     </aside>
-    <section className="form-panel"><header className="topbar"><span>SELAMAT DATANG DI SANDAR</span><span className="dev-tag">Khusus 18+</span></header>
+    <section className="auth-form">
+      <div className="auth-top"><span className="sm">{step}</span><LangSwitch/></div>
       <div className="auth-card">
-        <div className="step-icon" aria-hidden="true">{flow.screen === 'account' || success ? '✓' : ['verify-email','check-email'].includes(flow.screen) ? '✉' : newPassword ? '◇' : '◒'}</div>
-        <p className="eyebrow">{flow.screen === 'register' ? 'BUAT AKUN' : flow.screen === 'account' ? 'AKUN ANDA' : 'SATU LANGKAH LEBIH DEKAT'}</p>
-        <h2>{success ? flow.screen === 'verify-email' ? 'Email terverifikasi.' : 'Kata sandi diperbarui.' : titles[flow.screen]}</h2><p className="intro">{subtitles[flow.screen]}</p>
-        {!online && <div className="error" role="status">Anda sedang offline. Sambungkan internet untuk melanjutkan.</div>}
-        {flow.error && <div className="error" role="alert" data-error-code={flow.error.code}><strong>{flow.error.status === 401 && flow.screen === 'account' ? 'Sesi berakhir. ' : ''}</strong>{flow.error.message}{flow.cooldown > 0 && <span> Coba lagi dalam {flow.cooldown} detik.</span>}</div>}
-        {flow.notice && <div className="notice" role="status">{flow.notice}</div>}
-        {flow.error?.code === 'EMAIL_VERIFICATION_REQUIRED' && <button className="text-button" onClick={() => go('check-email')}>Kirim ulang email verifikasi</button>}
-        {flow.screen === 'account' ? <>
-          {flow.busy && <p role="status">Memeriksa sesi…</p>}
-          {flow.user && <div className="account-summary"><span className="account-avatar">✓</span><h3>{flow.user.email}</h3><dl><dt>Jenis akun</dt><dd>{flow.user.accountType === 'COMMUNITY' ? 'Komunitas' : 'Member'}</dd>{community && <><dt>Pendaftaran</dt><dd>{communityStatus[community]}</dd></>}<dt>Email</dt><dd>{flow.user.emailVerifiedAt ? 'Terverifikasi' : 'Belum diverifikasi'}</dd></dl><p>{flow.user.accountType === 'COMMUNITY' ? 'Verifikasi email belum berarti komunitasmu disetujui. Kami akan mengabari lewat email setelah tim kami meninjau pendaftaranmu.' : 'Membuka Sandar…'}</p></div>}
-          {!flow.user && !flow.busy && <button className="primary" onClick={() => void flow.refreshSession()} disabled={flow.cooldown > 0}>Periksa sesi lagi</button>}
-          <button className="secondary" onClick={() => void flow.logout()} disabled={flow.busy}>Keluar</button>
-          {flow.error?.status === 401 && <button className="text-button" onClick={() => go('login')}>Masuk kembali</button>}
-        </> : <form noValidate onSubmit={event => { event.preventDefault();void flow.submit(); }}>
-          {flow.screen === 'register' && <fieldset className="account-types"><legend>Daftar sebagai</legend>{(['member','community'] as const).map(type => <label key={type} className={flow.accountType === type ? 'chosen' : ''}><input type="radio" name="accountType" value={type} checked={flow.accountType === type} onChange={() => flow.setAccountType(type)} disabled={flow.busy}/><strong>{type === 'member' ? 'Member' : 'Komunitas'}</strong><span>{type === 'member' ? 'Temukan ruang untuk berbagi.' : 'Daftarkan organisasi Anda.'}</span></label>)}</fieldset>}
-          {needsEmail && <label className="field">Alamat email<input name="email" type="email" autoComplete="email" value={flow.email} maxLength={254} placeholder="nama@contoh.com" onChange={e => flow.setEmail(e.target.value)} disabled={flow.busy} required/></label>}
-          {needsPassword && !success && <><label className="field">{newPassword ? 'Kata sandi baru' : 'Kata sandi'}<span className="password-input"><input name="password" aria-label={newPassword ? 'Kata sandi baru' : 'Kata sandi'} type={showPassword ? 'text' : 'password'} autoComplete={newPassword ? 'new-password' : 'current-password'} value={flow.password} maxLength={128} onChange={e => flow.setPassword(e.target.value)} disabled={flow.busy} required/><button type="button" aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'} onClick={() => setShowPassword(v => !v)}>{showPassword ? 'Sembunyikan' : 'Lihat'}</button></span></label>{newPassword && <p className="field-hint">12–128 karakter. Gunakan kata sandi yang unik.</p>}</>}
-          {newPassword && !success && <label className="field">Konfirmasi kata sandi<input name="confirmation" aria-label="Konfirmasi kata sandi" type="password" autoComplete="new-password" value={flow.confirmation} maxLength={128} onChange={e => flow.setConfirmation(e.target.value)} disabled={flow.busy} required/>{flow.confirmation && flow.password !== flow.confirmation && <span className="field-error">Kata sandi belum sama.</span>}</label>}
-          {flow.screen === 'register' && <div className="consents">{flow.policyLoading ? <p role="status">Memuat kebijakan…</p> : flow.policies.length !== 2 ? <button type="button" className="text-button" onClick={() => void flow.loadPolicies()}>Muat ulang kebijakan</button> : <><label><input type="checkbox" checked={flow.terms} onChange={e => flow.setTerms(e.target.checked)} disabled={flow.busy}/>Saya menerima <a href={policyUrl(flow.policies,'TERMS')} target="_blank" rel="noreferrer">Syarat Layanan</a>.</label><label><input type="checkbox" checked={flow.privacy} onChange={e => flow.setPrivacy(e.target.checked)} disabled={flow.busy}/>Saya telah membaca <a href={policyUrl(flow.policies,'PRIVACY_NOTICE')} target="_blank" rel="noreferrer">Kebijakan Privasi</a>.</label></>}{flow.policies.some(p => p.version.startsWith('dev-')) && <p className="field-hint">Kebijakan pengembangan. Jangan gunakan data produksi.</p>}</div>}
-          {flow.screen === 'login' && <button type="button" className="text-button forgot" onClick={() => go('forgot-password')}>Lupa kata sandi?</button>}
-          {!success && <button className="primary" type="submit" disabled={!flow.canSubmit || !online}>{flow.busy ? 'Memproses…' : flow.cooldown > 0 ? `Coba lagi dalam ${flow.cooldown} dtk` : ({ login: 'Masuk',register: 'Buat akun','check-email': 'Kirim ulang email','verify-email': 'Verifikasi email','forgot-password': 'Kirim tautan pemulihan','reset-password': 'Simpan kata sandi',account: '' })[flow.screen]}</button>}
-          {flow.token && <a className="text-button native-link" href={`sandar://${flow.screen}#token=${flow.token}`} rel="noreferrer">Buka di aplikasi Sandar</a>}
+        <h1 className="h serif">{title}</h1>
+        <p className="p">{t(`auth.sub.${screen}`)}</p>
+        {!online && <p className="alert a-err" role="status">{t('auth.offline')}</p>}
+        {flow.error && <p className="alert a-err" role="alert" data-error-code={flow.error.code}><strong>{flow.error.status === 401 && screen === 'account' ? t('auth.sessionEnded') : ''}</strong>{authErrorText(lang,flow.error.code,flow.error.message)}{flow.cooldown > 0 && <span>{t('auth.retryInLong',{ s: flow.cooldown })}</span>}</p>}
+        {flow.notice && <p className="alert a-ok" role="status">{noticeText(lang,flow.notice)}</p>}
+        {flow.error?.code === 'EMAIL_VERIFICATION_REQUIRED' && <button className="link-button" onClick={() => go('check-email')}>{t('auth.resendVerify')}</button>}
+        {screen === 'account' ? <>
+          {flow.busy && <p className="sm" role="status">{t('auth.checking')}</p>}
+          {flow.user && <div className="account-box"><strong>{flow.user.email}</strong><dl>
+            <dt>{t('auth.accountType')}</dt><dd>{flow.user.accountType === 'COMMUNITY' ? t('auth.community') : t('auth.member')}</dd>
+            {community && <><dt>{t('auth.application')}</dt><dd>{t(`community.${community}`)}</dd></>}
+            <dt>{t('auth.emailStatus')}</dt><dd>{flow.user.emailVerifiedAt ? t('auth.verified') : t('auth.unverified')}</dd>
+          </dl><p className="sm">{flow.user.accountType === 'COMMUNITY' ? t('auth.communityNote') : t('auth.opening')}</p></div>}
+          {!flow.user && !flow.busy && <button className="btn wide" onClick={() => void flow.refreshSession()} disabled={flow.cooldown > 0}>{t('auth.recheck')}</button>}
+          <button className="btn2 wide" onClick={() => void flow.logout()} disabled={flow.busy}>{t('common.logout')}</button>
+          {flow.error?.status === 401 && <button className="link-button" onClick={() => go('login')}>{t('auth.loginAgain')}</button>}
+        </> : <form className="stack" noValidate onSubmit={event => { event.preventDefault();void flow.submit(); }}>
+          {screen === 'register' && <fieldset className="roles"><legend className="lbl">{t('auth.role.legend')}</legend>{(['member','community'] as const).map(type => <label key={type} className={flow.accountType === type ? 'role sel' : 'role'}><input type="radio" name="accountType" value={type} checked={flow.accountType === type} onChange={() => flow.setAccountType(type)} disabled={flow.busy}/><strong>{t(type === 'member' ? 'auth.role.member' : 'auth.role.community')}</strong><span className="sm">{t(type === 'member' ? 'auth.role.member.sub' : 'auth.role.community.sub')}</span></label>)}</fieldset>}
+          {needsEmail && <label className="lbl">{t('auth.email')}<input className="in" name="email" type="email" autoComplete="email" value={flow.email} maxLength={254} placeholder={t('auth.emailPlaceholder')} onChange={e => flow.setEmail(e.target.value)} disabled={flow.busy} required/></label>}
+          {needsPassword && !success && <label className="lbl">{newPassword ? t('auth.newPassword') : t('auth.password')}<span className="password"><input className="in" name="password" aria-label={newPassword ? t('auth.newPassword') : t('auth.password')} type={showPassword ? 'text' : 'password'} autoComplete={newPassword ? 'new-password' : 'current-password'} value={flow.password} maxLength={128} onChange={e => flow.setPassword(e.target.value)} disabled={flow.busy} required/><button type="button" aria-label={showPassword ? t('auth.hideAria') : t('auth.showAria')} onClick={() => setShowPassword(v => !v)}>{showPassword ? t('auth.hide') : t('auth.show')}</button></span>{newPassword && <span className="hint">{t('auth.passwordHint')}</span>}</label>}
+          {newPassword && !success && <label className="lbl">{t('auth.confirm')}<input className="in" name="confirmation" aria-label={t('auth.confirm')} type="password" autoComplete="new-password" value={flow.confirmation} maxLength={128} onChange={e => flow.setConfirmation(e.target.value)} disabled={flow.busy} required/>{flow.confirmation && flow.password !== flow.confirmation && <span className="fe">{t('auth.mismatch')}</span>}</label>}
+          {screen === 'register' && <div className="consents">{flow.policyLoading ? <p className="sm" role="status">{t('auth.policiesLoading')}</p> : flow.policies.length !== 2 ? <button type="button" className="link-button" onClick={() => void flow.loadPolicies()}>{t('auth.policiesReload')}</button> : <>
+            <label className="check"><input type="checkbox" checked={flow.terms} onChange={e => flow.setTerms(e.target.checked)} disabled={flow.busy}/><span>{t('auth.terms.pre')}<a href={policyUrl(flow.policies,'TERMS')} target="_blank" rel="noreferrer">{t('auth.terms.link')}</a>.</span></label>
+            <label className="check"><input type="checkbox" checked={flow.privacy} onChange={e => flow.setPrivacy(e.target.checked)} disabled={flow.busy}/><span>{t('auth.privacy.pre')}<a href={policyUrl(flow.policies,'PRIVACY_NOTICE')} target="_blank" rel="noreferrer">{t('auth.privacy.link')}</a>.</span></label>
+          </>}{flow.policies.some(p => p.version.startsWith('dev-')) && <p className="hint">{t('auth.devPolicy')}</p>}</div>}
+          {screen === 'login' && <button type="button" className="link-button end" onClick={() => go('forgot-password')}>{t('auth.forgot')}</button>}
+          {!success && <button className="btn wide" type="submit" disabled={!flow.canSubmit || !online}>{flow.busy ? t('common.working') : flow.cooldown > 0 ? t('auth.retryIn',{ s: flow.cooldown }) : t(`auth.submit.${screen}`)}</button>}
+          {flow.token && <a className="link-button" href={`sandar://${screen}#token=${flow.token}`} rel="noreferrer">{t('auth.openApp')}</a>}
         </form>}
-        {flow.screen !== 'account' && <nav className="auth-nav" aria-label="Navigasi akun">{flow.screen === 'login' ? <p>Belum punya akun? <button onClick={() => go('register')}>Daftar sekarang</button></p> : <button onClick={() => go('login')}>← Kembali ke masuk</button>}{flow.screen === 'verify-email' && !success && <button onClick={() => go('check-email')}>Minta tautan verifikasi baru</button>}{flow.screen === 'reset-password' && !success && <button onClick={() => go('forgot-password')}>Minta tautan pemulihan baru</button>}</nav>}
-        <div className="safety-note"><span aria-hidden="true">◇</span><p>Ruang dukungan sebaya untuk orang dewasa.<br/>Bukan pengganti layanan profesional atau darurat.</p></div>
-      </div><footer className="form-footer"><span>© Sandar</span><a href={policyUrl(flow.policies,'PRIVACY_NOTICE')}>Privasi</a></footer>
+        {screen !== 'account' && <nav className="auth-nav sm" aria-label={t('auth.nav')}>
+          {screen === 'login' ? <p>{t('auth.noAccount')} <button className="link-button" onClick={() => go('register')}>{t('auth.signUp')}</button></p> : <button className="link-button" onClick={() => go('login')}>{t('auth.backToLogin')}</button>}
+          {screen === 'verify-email' && !success && <button className="link-button" onClick={() => go('check-email')}>{t('auth.newVerify')}</button>}
+          {screen === 'reset-password' && !success && <button className="link-button" onClick={() => go('forgot-password')}>{t('auth.newReset')}</button>}
+          {screen === 'register' && <p>{t('auth.emailPrivate')}</p>}
+        </nav>}
+        <p className="safety sm">{t('auth.safety')}</p>
+      </div>
+      <footer className="auth-foot sm"><span>© Sandar</span><a href={policyUrl(flow.policies,'PRIVACY_NOTICE')}>{t('auth.privacyLink')}</a></footer>
     </section>
   </main>;
 }
