@@ -5,7 +5,7 @@ import { ClientError } from '../../../../packages/auth-client/src/client';
 import { resolveDestination } from '../../../../packages/auth-client/src/destination';
 import type { Space } from '../../../../packages/contracts/src/spaces';
 import { apiLocale, LangSwitch, useLang } from '../i18n';
-import { call, handOffSearch, memberClient, setApiLocale } from './client';
+import { call, handOffSearch, routingClient, setApiLocale } from './client';
 import { HelpButton } from './help';
 import { Onboarding } from './onboarding';
 import { Home } from './home';
@@ -23,7 +23,7 @@ export function MemberApp({ route }: { route: MemberRoute }) {
   useEffect(() => {
     let active = true;
     // The server decides where this account may be; the URL is only a wish.
-    resolveDestination(memberClient()).then(destination => {
+    resolveDestination(routingClient).then(destination => {
       if (!active) return;
       if (destination.kind === 'member-onboarding') { if (route.name !== 'onboarding') return window.location.replace('/onboarding'); }
       else if (destination.kind === 'member-home') { if (route.name === 'onboarding') return window.location.replace('/home'); }

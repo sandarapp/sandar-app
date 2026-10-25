@@ -21,9 +21,19 @@ function required(name: string) {
 }
 
 let api: Promise<FastifyInstance> | null = null;
+// Opening a TLS connection to a distant database costs several round trips,
+// so connections stay open for reuse while this function instance is warm.
+let connects = 0;
+export const instanceStats = () => ({ connects });
 function instance() {
   api ??= (async () => buildApp({
-    db: new Pool({ ...connection(required('DATABASE_URL')), max: 3, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000, statement_timeout: 5000 }),
+    db: (() => {
+      const pool = new Pool({ ...connection(required('DATABASE_URL')), max: 3, idleTimeoutMillis: 300000, keepAlive: true, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
+      pool.on('connect', () => { connects++; });
+      // A connection dropped while the instance was frozen is replaced on the next request.
+      pool.on('error', () => {});
+      return pool;
+    })(),
     email: new ResendEmailProvider(required('RESEND_API_KEY'), required('EMAIL_FROM'), required('APP_BASE_URL')),
     encryptionKey: required('DATA_ENCRYPTION_KEY'),
     webOrigin: required('APP_BASE_URL'),

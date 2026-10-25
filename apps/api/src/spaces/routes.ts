@@ -1,45 +1,42 @@
 import {randomUUID} from 'node:crypto';
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import type {Database,Transaction} from '../../../../packages/database/src/database.js';
-import {transaction} from '../../../../packages/database/src/database.js';
 import * as schema from '../../../../packages/contracts/src/spaces.js';
-import {token} from '../../../../packages/contracts/src/auth.js';
-import type {AuthService} from '../auth/service.js';
-import {authorize} from '../auth/authorization.js';
-import {ApiError,invalidSession} from '../core/errors.js';
+import {ApiError} from '../core/errors.js';
 import {rateLimit} from '../core/rate-limit.js';
+import {memberRequest} from '../core/member-request.js';
 import {DevelopmentSafetyClassifier,type SafetyClassifier} from './safety.js';
 // English when the request asks for it; otherwise the Indonesian original.
 export const contentLocale=(req:FastifyRequest)=>/^en\b/i.test(String(req.headers['accept-language']??''))?'en':'id-ID';
 const fail=(code:string,status=403)=>new ApiError(status,code,'This action is not available.');
 const blockedSql=`NOT EXISTS(SELECT 1 FROM member_blocks b WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=p.author_user_id) OR (b.blocked_user_id=$1 AND b.blocker_user_id=p.author_user_id))`;
 async function event(tx:Pick<Transaction,'query'>,name:string,spaceId?:string){await tx.query('INSERT INTO space_analytics(id,event,space_id) VALUES($1,$2,$3)',[randomUUID(),name,spaceId??null]);}
-export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safety:SafetyClassifier=new DevelopmentSafetyClassifier()) {
+export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifier=new DevelopmentSafetyClassifier()) {
  if(process.env.NODE_ENV==='production' && safety instanceof DevelopmentSafetyClassifier)throw new Error('Configure a reviewed production safety adapter before enabling Spaces');
  async function run(request:FastifyRequest,work:(tx:Transaction,userId:string)=>Promise<unknown>){
-  const parsed=token.safeParse(request.headers.authorization?.replace(/^Bearer /,''));if(!parsed.success)throw invalidSession();
-  const user=await auth.authenticate(parsed.data);authorize(user,'member:participate');
-  if(request.method!=='GET')await rateLimit(db,`space-write:${user.id}`,60,60);
+  const write=request.method!=='GET';
   const joining=request.method==='POST'&&request.routeOptions.url==='/v1/spaces/:id/join';
-  const candidate=joining?schema.uuid.safeParse((request.params as Record<string,string>).id):null;
-  const joinId=candidate?.success&&(await db.query('SELECT id FROM support_spaces WHERE id=$1',[candidate.data])).rowCount?candidate.data:undefined;
-  if(joinId)await event(db,'official_space_join_started',joinId);
-  try{return await transaction(db,async tx=>{
-   // One lock order for participation mutations/read projections avoids block/join races in this MVP.
-   await tx.query("SELECT pg_advisory_xact_lock(hashtext('sandar-spaces-v1'))");
-   const current=await auth.authenticate(parsed.data,tx);authorize(current,'member:participate');
-   const completed=(await tx.query('SELECT 1 FROM member_profiles WHERE user_id=$1 AND onboarding_completed_at IS NOT NULL',[current.id])).rowCount;
-   if(!completed)throw fail('ONBOARDING_REQUIRED');
-   return {data:await work(tx,current.id),error:null};
-  });}catch(error){if(joinId)await event(db,'official_space_join_failed',joinId);throw error;}
+  let joinId:string|undefined;
+  try{return await memberRequest(db,request,{write,onboardingError:()=>fail('ONBOARDING_REQUIRED'),before:write?async member=>{
+   await rateLimit(db,`space-write:${member.id}`,60,60);
+   const candidate=joining?schema.uuid.safeParse((request.params as Record<string,string>).id):null;
+   joinId=candidate?.success&&(await db.query('SELECT id FROM support_spaces WHERE id=$1',[candidate.data])).rowCount?candidate.data:undefined;
+   if(joinId)await event(db,'official_space_join_started',joinId);
+  }:undefined},(tx,member)=>work(tx,member.id));}
+  catch(error){if(joinId)await event(db,'official_space_join_failed',joinId);throw error;}
  }
- async function space(tx:Transaction,userId:string,id:string,locale='id-ID'):Promise<schema.Space>{
-  const row=(await tx.query(`SELECT s.*,COALESCE(t.name,s.name) AS name,COALESCE(t.purpose,s.purpose) AS purpose,COALESCE(t.audience,s.audience) AS audience,COALESCE(t.topic,s.topic) AS topic,m.status AS membership
-   FROM support_spaces s LEFT JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1 LEFT JOIN support_space_translations t ON t.space_id=s.id AND t.locale=$3
-   WHERE s.id=$2 AND s.kind='OFFICIAL_SANDAR'`,[userId,id,locale])).rows[0];
-  if(!row)throw fail('NOT_FOUND',404);
+ const spaceSql=`SELECT s.*,COALESCE(t.name,s.name) AS name,COALESCE(t.purpose,s.purpose) AS purpose,COALESCE(t.audience,s.audience) AS audience,COALESCE(t.topic,s.topic) AS topic,m.status AS membership
+   FROM support_spaces s LEFT JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1 LEFT JOIN support_space_translations t ON t.space_id=s.id AND t.locale=$2
+   WHERE s.kind='OFFICIAL_SANDAR'`;
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database row
+ function projectSpace(row:Record<string,any>):schema.Space{
   const joined=row.status==='ACTIVE'&&row.membership==='JOINED';
   return {id:row.id,kind:'OFFICIAL_SANDAR',label:'Official Sandar Space',name:row.name,purpose:row.purpose,audience:row.audience,topic:row.topic,operator:row.operator_name,status:row.status,guidelinesVersion:row.guidelines_version,developmentSample:row.development_sample,membership:row.membership??'NOT_JOINED',permissions:{join:row.status==='ACTIVE'&&!['BANNED','RESTRICTED','JOINED'].includes(row.membership),read:joined,post:joined&&row.posting_enabled,comment:joined&&row.commenting_enabled,anonymous:joined&&row.anonymous_allowed}};
+ }
+ async function space(tx:Transaction,userId:string,id:string,locale='id-ID'):Promise<schema.Space>{
+  const row=(await tx.query(`${spaceSql} AND s.id=$3`,[userId,locale,id])).rows[0];
+  if(!row)throw fail('NOT_FOUND',404);
+  return projectSpace(row);
  }
  function requirePermission(s:schema.Space,permission:'read'|'post'|'comment'){
   if(s.status!=='ACTIVE')throw fail('SPACE_RESTRICTED');
@@ -52,15 +49,24 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
   if(!p||p.status!=='VISIBLE')throw fail('CONTENT_REMOVED',404);
   const s=await space(tx,userId,p.space_id);requirePermission(s,'read');return {p,s};
  }
- async function projectPost(tx:Transaction,userId:string,p:Record<string,unknown>,locale='id-ID'):Promise<schema.SpacePost>{
-  if(p.identity_mode==='ANNOUNCEMENT'&&locale!=='id-ID'){const translated=(await tx.query('SELECT body FROM space_post_translations WHERE post_id=$1 AND locale=$2',[p.id,locale])).rows[0];if(translated)p={...p,body:translated.body};}
-  const profile=p.identity_mode==='PROFILE'?(await tx.query('SELECT display_name FROM member_profiles WHERE user_id=$1',[p.author_user_id])).rows[0]:null;
-  const reactions=(await tx.query('SELECT type FROM space_reactions WHERE post_id=$1 AND user_id=$2',[p.id,userId])).rows;
-  return {id:p.id as string,body:p.body as string,identityMode:p.identity_mode as schema.SpacePost['identityMode'],status:p.status==='PENDING_REVIEW'?'PENDING_REVIEW':'VISIBLE',authorName:p.identity_mode==='ANONYMOUS'?'Anonymous Member':p.identity_mode==='ANNOUNCEMENT'?'Sandar Team':profile?.display_name??'Member',createdAt:(p.created_at as Date).toISOString(),own:p.author_user_id===userId,canBlock:Boolean(p.author_user_id&&p.author_user_id!==userId),reactions:(['SUPPORT','RELATE','ENCOURAGEMENT'] as const).map(type=>({type,selected:reactions.some(r=>r.type===type)}))};
+ // Projects many posts with three queries in total, whatever the number of posts.
+ /* eslint-disable @typescript-eslint/no-explicit-any -- database rows */
+ async function projectPosts(tx:Transaction,userId:string,posts:Record<string,any>[],locale='id-ID'):Promise<schema.SpacePost[]>{
+  if(!posts.length)return [];
+  const ids=posts.map(p=>p.id as string);
+  const authors=[...new Set(posts.filter(p=>p.identity_mode==='PROFILE').map(p=>p.author_user_id as string))];
+  const [names,reactions,translations]=await Promise.all([
+   authors.length?tx.query('SELECT user_id,display_name FROM member_profiles WHERE user_id=ANY($1)',[authors]):Promise.resolve({rows:[]}),
+   tx.query('SELECT post_id,type FROM space_reactions WHERE post_id=ANY($1) AND user_id=$2',[ids,userId]),
+   locale!=='id-ID'&&posts.some(p=>p.identity_mode==='ANNOUNCEMENT')?tx.query('SELECT post_id,body FROM space_post_translations WHERE post_id=ANY($1) AND locale=$2',[ids,locale]):Promise.resolve({rows:[]})
+  ]);
+  const nameOf=new Map(names.rows.map((r:any)=>[r.user_id,r.display_name])),bodyOf=new Map(translations.rows.map((r:any)=>[r.post_id,r.body]));
+  return posts.map(p=>({id:p.id,body:bodyOf.get(p.id)??p.body,identityMode:p.identity_mode,status:p.status==='PENDING_REVIEW'?'PENDING_REVIEW':'VISIBLE',authorName:p.identity_mode==='ANONYMOUS'?'Anonymous Member':p.identity_mode==='ANNOUNCEMENT'?'Sandar Team':nameOf.get(p.author_user_id)??'Member',createdAt:(p.created_at as Date).toISOString(),own:p.author_user_id===userId,canBlock:Boolean(p.author_user_id&&p.author_user_id!==userId),reactions:(['SUPPORT','RELATE','ENCOURAGEMENT'] as const).map(type=>({type,selected:reactions.rows.some((r:any)=>r.post_id===p.id&&r.type===type)}))}));
  }
+ const projectPost=async(tx:Transaction,userId:string,p:Record<string,any>,locale='id-ID')=>(await projectPosts(tx,userId,[p],locale))[0]!;
+ /* eslint-enable @typescript-eslint/no-explicit-any */
  app.get('/v1/spaces',req=>run(req,async(tx,userId)=>{
-  const rows=(await tx.query("SELECT id FROM support_spaces WHERE kind='OFFICIAL_SANDAR' ORDER BY created_at,id")).rows;
-  return Promise.all(rows.map(r=>space(tx,userId,r.id,contentLocale(req))));
+  return (await tx.query(`${spaceSql} ORDER BY s.created_at,s.id`,[userId,contentLocale(req)])).rows.map(projectSpace);
  }));
  app.get('/v1/spaces/:id',req=>run(req,(tx,userId)=>space(tx,userId,id(req),contentLocale(req))));
  app.post('/v1/spaces/:id/join',req=>run(req,async(tx,userId)=>{
@@ -84,7 +90,7 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
   const s=await space(tx,userId,id(req));requirePermission(s,'read');
   // Authors also see their own posts while they wait for review; nobody else does.
   const rows=(await tx.query(`SELECT p.* FROM space_posts p WHERE p.space_id=$2 AND (p.status='VISIBLE' OR (p.status='PENDING_REVIEW' AND p.author_user_id=$1)) AND ${blockedSql} ORDER BY (p.identity_mode='ANNOUNCEMENT') DESC,p.created_at DESC LIMIT 50`,[userId,s.id])).rows;
-  return Promise.all(rows.map(p=>projectPost(tx,userId,p,contentLocale(req))));
+  return projectPosts(tx,userId,rows,contentLocale(req));
  }));
  app.get('/v1/space-posts/:id',req=>run(req,async(tx,userId)=>projectPost(tx,userId,(await post(tx,userId,id(req))).p,contentLocale(req))));
  app.post('/v1/spaces/:id/posts',req=>run(req,async(tx,userId)=>{

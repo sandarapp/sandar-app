@@ -55,9 +55,11 @@ async function proxy(request: NextRequest, context: {params: Promise<{path: stri
   if (process.env.SANDAR_API_MODE === 'in-process') {
     try {
       // The API runs inside this app (serverless hosts such as Netlify); it vouches for the visitor IP itself.
-      const { callInProcess } = await import('./in-process');
+      const { callInProcess,instanceStats } = await import('./in-process');
+      const started = performance.now(),before = instanceStats().connects;
       const response = await callInProcess({ method: request.method as 'GET'|'POST'|'PATCH'|'DELETE',path,search: request.nextUrl.search,headers: forwarded,body,visitorIp: ip });
-      const headers = new Headers({ 'content-type': 'application/json','cache-control': 'no-store' });
+      // Timing only, no request data: how long the API took and how many new database connections it opened.
+      const headers = new Headers({ 'content-type': 'application/json','cache-control': 'no-store','server-timing': `api;dur=${Math.round(performance.now() - started)}, db-connect;desc="${instanceStats().connects - before} new"` });
       for (const name of ['set-cookie','retry-after','x-request-id']) {
         const value = response.headers[name];
         for (const item of Array.isArray(value) ? value : value === undefined ? [] : [String(value)]) headers.append(name,item);
