@@ -108,10 +108,10 @@ export async function buildApp(options: { db: Database; email: EmailProvider; lo
   });
   app.get('/v1/users/me',async request => ok(publicUser(await auth.authenticate(bearer(request.headers.authorization)))));
   addOnboarding(app,options.db,auth);
-  addSpaces(app,options.db,auth,options.safety);
+  addSpaces(app,options.db,options.safety);
   addModeration(app,options.db,auth);
-  addMemberHome(app,options.db,auth);
-  addDiscovery(app,options.db,auth);
+  addMemberHome(app,options.db);
+  addDiscovery(app,options.db);
   addCommunityRouting(app,options.db,auth);
   if (options.webOrigin && options.encryptionKey) await addWebAuth(app,options.db,auth,{ origin: options.webOrigin,encryptionKey: options.encryptionKey });
   if (options.emailFlushSecret) {

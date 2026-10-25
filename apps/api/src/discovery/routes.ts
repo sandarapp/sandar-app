@@ -1,22 +1,16 @@
 import {randomUUID} from 'node:crypto';
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import type {Database,Transaction} from '../../../../packages/database/src/database.js';
-import {transaction} from '../../../../packages/database/src/database.js';
-import {token} from '../../../../packages/contracts/src/auth.js';
 import {discoveryInput,discoveryAnalytics,discoveryLabels,type DiscoveryData,type DiscoveryResult} from '../../../../packages/contracts/src/discovery.js';
-import type {AuthService} from '../auth/service.js';
-import {authorize} from '../auth/authorization.js';
-import {ApiError,invalidSession} from '../core/errors.js';
+import {ApiError} from '../core/errors.js';
 import {rateLimit} from '../core/rate-limit.js';
 import {contentLocale} from '../spaces/routes.js';
-export function addDiscovery(app:FastifyInstance,db:Database,auth:AuthService){
- async function run(req:FastifyRequest,work:(tx:Transaction,userId:string)=>Promise<unknown>){
-  const parsed=token.safeParse(req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):'');if(!parsed.success)throw invalidSession();
-  const u=await auth.authenticate(parsed.data);authorize(u,'member:participate');await rateLimit(db,'discovery:'+u.id,180,60);
-  return transaction(db,async tx=>{await tx.query("SELECT pg_advisory_xact_lock(hashtext('sandar-spaces-v1'))");const current=await auth.authenticate(parsed.data,tx);authorize(current,'member:participate');
-   if(!(await tx.query('SELECT 1 FROM member_profiles WHERE user_id=$1 AND onboarding_completed_at IS NOT NULL',[u.id])).rowCount)throw new ApiError(403,'ONBOARDING_REQUIRED','Complete onboarding first.');
-   return {data:await work(tx,u.id),error:null};});
- }
+import {memberRequest} from '../core/member-request.js';
+export function addDiscovery(app:FastifyInstance,db:Database){
+ // Searching and recording discovery views only read or append, so no shared lock is needed.
+ const run=(req:FastifyRequest,work:(tx:Transaction,userId:string)=>Promise<unknown>)=>memberRequest(db,req,{write:false,
+  onboardingError:()=>new ApiError(403,'ONBOARDING_REQUIRED','Complete onboarding first.'),
+  before:async member=>{await rateLimit(db,'discovery:'+member.id,180,60);}},(tx,member)=>work(tx,member.id));
  app.post('/v1/discovery/search',req=>run(req,async(tx,userId):Promise<DiscoveryData>=>{
   const f=discoveryInput.parse(req.body);
   const profile=(await tx.query('SELECT needs,goals,community_type,country,city FROM member_profiles WHERE user_id=$1',[userId])).rows[0];
