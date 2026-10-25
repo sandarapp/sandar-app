@@ -95,12 +95,24 @@ describe('member cookie gateway', () => {
     expect((await member(cookie, 'GET', 'home?debug=1')).statusCode).toBe(400);
   });
 
-  it('keeps posting, comments and unknown paths closed', async () => {
+  it('posts through the cookie only where posting is open', async () => {
+    const cookie = await account('member', 'rani@example.invalid');
+    await onboard(cookie);
+    await member(cookie, 'POST', `spaces/${spaceId}/join`, { accepted: true, guidelinesVersion: 'test-v1' });
+    const post = (body: string) => member(cookie, 'POST', `spaces/${spaceId}/posts`, { requestId: randomUUID(), identityMode: 'PROFILE', body });
+    expect((await post('Closed space')).statusCode).toBe(403);
+    await db.query('UPDATE support_spaces SET posting_enabled=true');
+    expect((await post('Open space')).statusCode).toBe(200);
+    expect((await member(cookie, 'GET', 'moderation/queue')).statusCode).toBe(403);
+    expect((await member(cookie, 'GET', 'moderation/me')).json().data).toEqual({ moderator: false });
+  });
+
+  it('keeps comments and unknown paths closed', async () => {
     const cookie = await account('member', 'rani@example.invalid');
     await onboard(cookie);
     await member(cookie, 'POST', `spaces/${spaceId}/join`, { accepted: true, guidelinesVersion: 'test-v1' });
     for (const [method, path] of [
-      ['POST', `spaces/${spaceId}/posts`], ['POST', `space-posts/${postId}/comments`], ['POST', 'auth/logout'],
+      ['POST', `space-posts/${postId}/comments`], ['POST', 'auth/logout'],
       ['GET', 'spaces/not-a-uuid'], ['GET', `spaces/${spaceId}/../../auth/session`], ['PATCH', 'home']
     ] as const) expect((await member(cookie, method, path, method === 'GET' ? undefined : { body: 'x' })).statusCode, `${method} ${path}`).toBe(404);
     expect(await db.query('SELECT 1 FROM space_posts WHERE author_user_id IS NOT NULL')).toMatchObject({ rowCount: 0 });
@@ -136,7 +148,11 @@ describe('member cookie gateway', () => {
   it('exposes a strict allowlist', () => {
     expect(memberRouteAllowed('GET', 'home')).toBe(true);
     expect(memberRouteAllowed('POST', 'home')).toBe(false);
-    expect(memberRouteAllowed('POST', `spaces/${randomUUID()}/posts`)).toBe(false);
+    expect(memberRouteAllowed('POST', `spaces/${randomUUID()}/posts`)).toBe(true);
+    expect(memberRouteAllowed('POST', `space-posts/${randomUUID()}/comments`)).toBe(false);
+    expect(memberRouteAllowed('GET', 'moderation/queue')).toBe(true);
+    expect(memberRouteAllowed('POST', `moderation/posts/${randomUUID()}/decision`)).toBe(true);
+    expect(memberRouteAllowed('POST', 'moderation/posts/not-a-uuid/decision')).toBe(false);
     expect(memberRouteAllowed('DELETE', `space-posts/${randomUUID()}/reactions/LIKE`)).toBe(false);
   });
 });

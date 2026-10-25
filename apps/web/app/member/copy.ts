@@ -41,7 +41,7 @@ export function spacePhoto(id: string) {
 
 /** Error key for API codes the member can act on. */
 export function errorKey(code: string) {
-  const known = ['OFFLINE', 'TIMEOUT', 'NETWORK_ERROR', 'POLICY_VERSION_CHANGED', 'GUIDELINES_CHANGED', 'SPACE_RESTRICTED', 'MEMBERSHIP_REQUIRED', 'CONTENT_REMOVED', 'RATE_LIMITED', 'ONBOARDING_INCOMPLETE'] as const;
+  const known = ['OFFLINE', 'TIMEOUT', 'NETWORK_ERROR', 'POLICY_VERSION_CHANGED', 'GUIDELINES_CHANGED', 'SPACE_RESTRICTED', 'MEMBERSHIP_REQUIRED', 'CONTENT_REMOVED', 'RATE_LIMITED', 'ONBOARDING_INCOMPLETE', 'CONTENT_REQUIRES_EDIT', 'ANONYMOUS_DISABLED', 'POSTING_DISABLED', 'ALREADY_REVIEWED'] as const;
   return (known as readonly string[]).includes(code) ? `err.${code as typeof known[number]}` as const : 'err.default' as const;
 }
 

@@ -69,3 +69,18 @@ variables) and redeploy the website through a pull request.
 ## 5. Smoke test
 
 Same list as `deploy-production.md` §9, on the Netlify address.
+
+## 5. Member posting and moderation
+
+Every member post waits for a person to review it (`SAFETY_MODE=human-review`
+holds them all), so posting opens only once a moderator exists. From the
+laptop, with `DATABASE_URL` and `DATABASE_CA_CERT` set for Supabase:
+
+```bash
+npm run moderation:grant -- <moderator's member email>   # add --revoke to remove
+npm run spaces:posting -- --open                         # --close to close again
+```
+
+Moderators review posts and reports at `/moderation` in the web app. Each
+decision is written to the append-only `moderation_actions` table. Comments stay
+closed.
