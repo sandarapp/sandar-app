@@ -10,3 +10,12 @@
   NEXT_TELEMETRY_DISABLED = "1"
   # The mobile workspace's install scripts are not needed for the web build.
   NPM_FLAGS = "--ignore-scripts"
+
+# The app lives at app.hellosandar.com, and its API accepts requests from that
+# origin only. Send the default Netlify address there so old links still work.
+# Deploy previews (deploy-preview-N--sandar-app.netlify.app) are not matched.
+[[redirects]]
+  from = "https://sandar-app.netlify.app/*"
+  to = "https://app.hellosandar.com/:splat"
+  status = 301
+  force = true
