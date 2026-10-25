@@ -107,3 +107,22 @@ describe('F04 reaction removal',()=>{
   expect((await remove(p,'SUPPORT',otherAccess)).statusCode).toBe(404);expect(await count(p)).toBe(1);
  });
 });
+
+describe('space content in English',()=>{
+ const en=(path:string)=>app.inject({method:'GET',url:'/v1'+path,headers:{authorization:'Bearer '+access,'accept-language':'en'}});
+ it('serves the English name and announcements when asked, the original otherwise; member posts stay as written',async()=>{
+  await join();
+  await db.query("INSERT INTO support_space_translations(space_id,locale,name,purpose,audience,topic) VALUES($1,'en','Work Stress EN','Peer support EN','Adults EN','Work EN')",[spaceId]);
+  const announcement=randomUUID();
+  await db.query("INSERT INTO space_posts(id,space_id,author_user_id,identity_mode,body,request_id) VALUES($1,$2,NULL,'ANNOUNCEMENT','Selamat datang.',$1)",[announcement,spaceId]);
+  await db.query("INSERT INTO space_post_translations(post_id,locale,body) VALUES($1,'en','Welcome.')",[announcement]);
+  const mine=(await create('Tulisan anggota.')).json().data.postId;
+  expect((await en('/spaces/'+spaceId)).json().data).toMatchObject({name:'Work Stress EN',purpose:'Peer support EN',audience:'Adults EN'});
+  expect((await req('/spaces/'+spaceId)).json().data.name).toBe('Work Stress');
+  const feed=(await en('/spaces/'+spaceId+'/posts')).json().data as {id:string;body:string}[];
+  expect(feed.find(p=>p.id===announcement)?.body).toBe('Welcome.');
+  expect(feed.find(p=>p.id===mine)?.body).toBe('Tulisan anggota.');
+  expect((await req('/spaces/'+spaceId+'/posts')).json().data.find((p:{id:string})=>p.id===announcement).body).toBe('Selamat datang.');
+  await expect(db.query("INSERT INTO space_post_translations(post_id,locale,body) VALUES($1,'en','x')",[mine])).rejects.toThrow(/only announcements/);
+ });
+});

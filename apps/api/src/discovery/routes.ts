@@ -8,6 +8,7 @@ import type {AuthService} from '../auth/service.js';
 import {authorize} from '../auth/authorization.js';
 import {ApiError,invalidSession} from '../core/errors.js';
 import {rateLimit} from '../core/rate-limit.js';
+import {contentLocale} from '../spaces/routes.js';
 export function addDiscovery(app:FastifyInstance,db:Database,auth:AuthService){
  async function run(req:FastifyRequest,work:(tx:Transaction,userId:string)=>Promise<unknown>){
   const parsed=token.safeParse(req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):'');if(!parsed.success)throw invalidSession();
@@ -19,13 +20,13 @@ export function addDiscovery(app:FastifyInstance,db:Database,auth:AuthService){
  app.post('/v1/discovery/search',req=>run(req,async(tx,userId):Promise<DiscoveryData>=>{
   const f=discoveryInput.parse(req.body);
   const profile=(await tx.query('SELECT needs,goals,community_type,country,city FROM member_profiles WHERE user_id=$1',[userId])).rows[0];
-  const rows=(await tx.query(`SELECT s.id,s.kind,s.name,s.purpose,s.topic,s.development_sample,d.topics,d.participation,d.format,d.country,d.city
-   FROM support_spaces s LEFT JOIN discovery_profiles d ON d.space_id=s.id
+  const rows=(await tx.query(`SELECT s.id,s.kind,COALESCE(tr.name,s.name) AS name,COALESCE(tr.purpose,s.purpose) AS purpose,COALESCE(tr.topic,s.topic) AS topic,s.development_sample,d.topics,d.participation,d.format,d.country,d.city
+   FROM support_spaces s LEFT JOIN discovery_profiles d ON d.space_id=s.id LEFT JOIN support_space_translations tr ON tr.space_id=s.id AND tr.locale=$2
    LEFT JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1
    LEFT JOIN users owner ON owner.id=d.owner_user_id LEFT JOIN community_application_states a ON a.user_id=owner.id
    WHERE s.status='ACTIVE' AND COALESCE(m.status,'NOT_JOINED') NOT IN ('BANNED','RESTRICTED')
    AND (d.space_id IS NULL OR d.published)
-   AND (s.kind='OFFICIAL_SANDAR' OR (NOT s.development_sample AND d.published AND cardinality(d.topics)>0 AND d.format IS NOT NULL AND length(trim(s.name))>0 AND length(trim(s.purpose))>0 AND owner.account_type='COMMUNITY' AND owner.email_verified_at IS NOT NULL AND owner.deleted_at IS NULL AND owner.status NOT IN ('SUSPENDED','DEACTIVATED','DELETED') AND a.status='APPROVED'))`,[userId])).rows;
+   AND (s.kind='OFFICIAL_SANDAR' OR (NOT s.development_sample AND d.published AND cardinality(d.topics)>0 AND d.format IS NOT NULL AND length(trim(s.name))>0 AND length(trim(s.purpose))>0 AND owner.account_type='COMMUNITY' AND owner.email_verified_at IS NOT NULL AND owner.deleted_at IS NULL AND owner.status NOT IN ('SUSPENDED','DEACTIVATED','DELETED') AND a.status='APPROVED'))`,[userId,contentLocale(req)])).rows;
   const lower=(s:string)=>s.toLocaleLowerCase('en');const q=lower(f.q),wantedFormat=({LOCAL:'IN_PERSON',MIXED:'HYBRID',ONLINE:'ONLINE'} as Record<string,string>)[profile.community_type];
   const needs=(profile.needs as string[]).filter(x=>x!=='PREFER_NOT_TO_SAY');
   const eligible=rows.filter(r=>(f.type==='ALL'||r.kind===f.type)&&(f.format==='ALL'||r.format===f.format)&&(!f.country||r.country===f.country)&&(!f.city||lower(r.city??'').includes(lower(f.city)))&&f.topics.every(t=>(r.topics??[]).includes(t))&&f.participation.every(t=>(r.participation??[]).includes(t))&&(!q||lower([r.name,r.purpose,r.topic,r.city,...(r.topics??[]).map((t:string)=>discoveryLabels[t])].join(' ')).includes(q)));
