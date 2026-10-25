@@ -7,11 +7,25 @@
       "purpose": "Tempat berbagi soal capek kerja, susah lepas dari kantor, dan pelan-pelan cari ritme yang lebih sehat.",
       "audience": "Orang dewasa yang lagi berat di pekerjaan atau kuliah.",
       "topic": "Kerja & hidup",
-      "topics": ["BURNOUT", "WORK_PRESSURE", "ANXIETY_STRESS"],
+      "topics": [
+        "BURNOUT",
+        "WORK_PRESSURE",
+        "ANXIETY_STRESS"
+      ],
       "posts": [
         "Selamat datang di ruang ini. Di sini kamu boleh baca dulu tanpa harus cerita apa-apa. Kalau ada yang terasa dekat, kirim Dukung atau Relate.",
         "Pertanyaan minggu ini: hal kecil apa yang membantumu berhenti mikirin kerjaan di malam hari?"
-      ]
+      ],
+      "en": {
+        "name": "Work Stress & Burnout",
+        "purpose": "A place to talk about work exhaustion, finding it hard to switch off, and slowly finding a healthier rhythm.",
+        "audience": "Adults going through a heavy time at work or university.",
+        "topic": "Work & life",
+        "posts": [
+          "Welcome to this space. You can read first without sharing anything. If something feels close, send Support or Relate.",
+          "This week’s question: what small thing helps you stop thinking about work at night?"
+        ]
+      }
     },
     {
       "key": "overwhelmed",
@@ -19,10 +33,22 @@
       "purpose": "Untuk hari-hari saat semuanya terasa terlalu banyak. Pelan-pelan saja.",
       "audience": "Orang dewasa yang butuh tempat tenang untuk berhenti sebentar.",
       "topic": "Dukungan sehari-hari",
-      "topics": ["OVERWHELMED", "GENERAL_SUPPORT"],
+      "topics": [
+        "OVERWHELMED",
+        "GENERAL_SUPPORT"
+      ],
       "posts": [
         "Selamat datang. Kalau hari ini berat, kamu nggak perlu menjelaskan apa-apa di sini. Membaca saja sudah cukup."
-      ]
+      ],
+      "en": {
+        "name": "Feeling Overwhelmed",
+        "purpose": "For the days when everything feels like too much. Take it slowly.",
+        "audience": "Adults who need a calm place to pause for a moment.",
+        "topic": "Everyday support",
+        "posts": [
+          "Welcome. If today is heavy, you don’t need to explain anything here. Just reading is enough."
+        ]
+      }
     },
     {
       "key": "loneliness",
@@ -30,10 +56,22 @@
       "purpose": "Untuk yang lagi merasa sendirian, dan ingin pelan-pelan terhubung lagi.",
       "audience": "Orang dewasa yang mencari percakapan yang hangat dan saling menghargai.",
       "topic": "Koneksi",
-      "topics": ["LONELINESS", "RELATIONSHIPS"],
+      "topics": [
+        "LONELINESS",
+        "RELATIONSHIPS"
+      ],
       "posts": [
         "Selamat datang. Banyak orang di ruang ini juga pernah merasa sendirian. Kamu nggak sendiri di sini."
-      ]
+      ],
+      "en": {
+        "name": "Loneliness & Connection",
+        "purpose": "For anyone feeling alone who wants to slowly connect again.",
+        "audience": "Adults looking for warm, respectful conversation.",
+        "topic": "Connection",
+        "posts": [
+          "Welcome. Many people in this space have felt alone too. You’re not alone here."
+        ]
+      }
     },
     {
       "key": "transitions",
@@ -41,10 +79,21 @@
       "purpose": "Pindah kota, ganti kerja, babak baru. Ruang untuk ngobrolin perubahan sesuai ritmemu.",
       "audience": "Orang dewasa yang sedang melewati perubahan besar.",
       "topic": "Babak baru",
-      "topics": ["LIFE_CHANGES"],
+      "topics": [
+        "LIFE_CHANGES"
+      ],
       "posts": [
         "Selamat datang. Perubahan, sekecil apa pun, bisa terasa berat. Ruang ini untuk melewatinya bareng-bareng."
-      ]
+      ],
+      "en": {
+        "name": "Times of Change",
+        "purpose": "Moving city, changing jobs, a new chapter. A space to talk about change at your own pace.",
+        "audience": "Adults going through a big change.",
+        "topic": "New chapter",
+        "posts": [
+          "Welcome. Change, however small, can feel heavy. This space is for getting through it together."
+        ]
+      }
     }
   ]
 }

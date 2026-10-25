@@ -2,8 +2,8 @@
 :root{--bg:#FFFAF4;--canvas:#F8EFE7;--ink:#3B241B;--body:#4F3A30;--muted:#68594F;--soft:#756359;--accent:#B65031;--accent-dark:#8F3425;--link:#A4472A;--line:#EAD6C5;--chip-line:#E8CFBC;--card:#FBF1E7;--sel:#FFEDDF;--field:#FFFDF9;--help:#FFF3D6;--help-ink:#6B4400;--brand:#F4DED0;--serif:'Noto Serif',Georgia,serif;--sans:'Noto Sans',system-ui,sans-serif;color-scheme:light}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;-webkit-text-size-adjust:100%}
-button,input,select{font:inherit;color:inherit}
-button,a,input,select{touch-action:manipulation}
+button,input,select,textarea{font:inherit;color:inherit}
+button,a,input,select,textarea{touch-action:manipulation}
 a{color:var(--link);text-underline-offset:3px}a:hover{color:var(--accent-dark)}
 button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.55}
 :focus-visible{outline:3px solid #49654C;outline-offset:3px}
@@ -162,6 +162,16 @@ a.sp:hover{transform:translateY(-2px);color:var(--ink)}
 .react.on{background:var(--sel);border-color:var(--accent);color:var(--accent-dark)}
 .react.quiet{border-color:transparent;text-decoration:underline;text-underline-offset:3px}
 
+/* Home: feed in the middle, spaces on the right */
+.home-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:36px;align-items:start;max-width:1180px}
+.home-side{position:sticky;top:96px;display:flex;flex-direction:column;gap:24px}
+.mini-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+.mini-space{display:flex;gap:12px;align-items:center;padding:8px;border-radius:16px;text-decoration:none;color:var(--ink)}
+.mini-space:hover{background:var(--card);color:var(--ink)}
+.mini-photo{width:56px;height:56px;border-radius:14px;flex:none;background:#F4D9C6 center/cover no-repeat}
+.mini-space strong{font-size:16px;line-height:1.2}
+.stack-xs{display:flex;flex-direction:column;gap:2px}
+
 /* Posting and moderation */
 .composer{display:flex;flex-direction:column;gap:10px;background:var(--card);border-radius:22px;padding:18px 20px}
 .area{height:auto;min-height:110px;padding:12px 14px;resize:vertical;line-height:1.5}
@@ -207,7 +217,7 @@ a.sp:hover{transform:translateY(-2px);color:var(--ink)}
 
 /* Tablet: side columns fold into the main column. */
 @media(max-width:1100px){
-  .with-side{grid-template-columns:1fr}.side-card{position:static}
+  .with-side,.home-layout{grid-template-columns:1fr}.side-card,.home-side{position:static}
   .why{display:none}
 }
 /* Phones (WA-07): brand panel becomes a band, the rail becomes the app's bottom nav. */

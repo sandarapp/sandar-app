@@ -9,6 +9,8 @@ import {authorize} from '../auth/authorization.js';
 import {ApiError,invalidSession} from '../core/errors.js';
 import {rateLimit} from '../core/rate-limit.js';
 import {DevelopmentSafetyClassifier,type SafetyClassifier} from './safety.js';
+// English when the request asks for it; otherwise the Indonesian original.
+export const contentLocale=(req:FastifyRequest)=>/^en\b/i.test(String(req.headers['accept-language']??''))?'en':'id-ID';
 const fail=(code:string,status=403)=>new ApiError(status,code,'This action is not available.');
 const blockedSql=`NOT EXISTS(SELECT 1 FROM member_blocks b WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=p.author_user_id) OR (b.blocked_user_id=$1 AND b.blocker_user_id=p.author_user_id))`;
 async function event(tx:Pick<Transaction,'query'>,name:string,spaceId?:string){await tx.query('INSERT INTO space_analytics(id,event,space_id) VALUES($1,$2,$3)',[randomUUID(),name,spaceId??null]);}
@@ -31,8 +33,10 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
    return {data:await work(tx,current.id),error:null};
   });}catch(error){if(joinId)await event(db,'official_space_join_failed',joinId);throw error;}
  }
- async function space(tx:Transaction,userId:string,id:string):Promise<schema.Space>{
-  const row=(await tx.query(`SELECT s.*,m.status AS membership FROM support_spaces s LEFT JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1 WHERE s.id=$2 AND s.kind='OFFICIAL_SANDAR'`,[userId,id])).rows[0];
+ async function space(tx:Transaction,userId:string,id:string,locale='id-ID'):Promise<schema.Space>{
+  const row=(await tx.query(`SELECT s.*,COALESCE(t.name,s.name) AS name,COALESCE(t.purpose,s.purpose) AS purpose,COALESCE(t.audience,s.audience) AS audience,COALESCE(t.topic,s.topic) AS topic,m.status AS membership
+   FROM support_spaces s LEFT JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1 LEFT JOIN support_space_translations t ON t.space_id=s.id AND t.locale=$3
+   WHERE s.id=$2 AND s.kind='OFFICIAL_SANDAR'`,[userId,id,locale])).rows[0];
   if(!row)throw fail('NOT_FOUND',404);
   const joined=row.status==='ACTIVE'&&row.membership==='JOINED';
   return {id:row.id,kind:'OFFICIAL_SANDAR',label:'Official Sandar Space',name:row.name,purpose:row.purpose,audience:row.audience,topic:row.topic,operator:row.operator_name,status:row.status,guidelinesVersion:row.guidelines_version,developmentSample:row.development_sample,membership:row.membership??'NOT_JOINED',permissions:{join:row.status==='ACTIVE'&&!['BANNED','RESTRICTED','JOINED'].includes(row.membership),read:joined,post:joined&&row.posting_enabled,comment:joined&&row.commenting_enabled,anonymous:joined&&row.anonymous_allowed}};
@@ -48,16 +52,17 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
   if(!p||p.status!=='VISIBLE')throw fail('CONTENT_REMOVED',404);
   const s=await space(tx,userId,p.space_id);requirePermission(s,'read');return {p,s};
  }
- async function projectPost(tx:Transaction,userId:string,p:Record<string,unknown>):Promise<schema.SpacePost>{
+ async function projectPost(tx:Transaction,userId:string,p:Record<string,unknown>,locale='id-ID'):Promise<schema.SpacePost>{
+  if(p.identity_mode==='ANNOUNCEMENT'&&locale!=='id-ID'){const translated=(await tx.query('SELECT body FROM space_post_translations WHERE post_id=$1 AND locale=$2',[p.id,locale])).rows[0];if(translated)p={...p,body:translated.body};}
   const profile=p.identity_mode==='PROFILE'?(await tx.query('SELECT display_name FROM member_profiles WHERE user_id=$1',[p.author_user_id])).rows[0]:null;
   const reactions=(await tx.query('SELECT type FROM space_reactions WHERE post_id=$1 AND user_id=$2',[p.id,userId])).rows;
   return {id:p.id as string,body:p.body as string,identityMode:p.identity_mode as schema.SpacePost['identityMode'],status:p.status==='PENDING_REVIEW'?'PENDING_REVIEW':'VISIBLE',authorName:p.identity_mode==='ANONYMOUS'?'Anonymous Member':p.identity_mode==='ANNOUNCEMENT'?'Sandar Team':profile?.display_name??'Member',createdAt:(p.created_at as Date).toISOString(),own:p.author_user_id===userId,canBlock:Boolean(p.author_user_id&&p.author_user_id!==userId),reactions:(['SUPPORT','RELATE','ENCOURAGEMENT'] as const).map(type=>({type,selected:reactions.some(r=>r.type===type)}))};
  }
  app.get('/v1/spaces',req=>run(req,async(tx,userId)=>{
   const rows=(await tx.query("SELECT id FROM support_spaces WHERE kind='OFFICIAL_SANDAR' ORDER BY created_at,id")).rows;
-  return Promise.all(rows.map(r=>space(tx,userId,r.id)));
+  return Promise.all(rows.map(r=>space(tx,userId,r.id,contentLocale(req))));
  }));
- app.get('/v1/spaces/:id',req=>run(req,(tx,userId)=>space(tx,userId,id(req))));
+ app.get('/v1/spaces/:id',req=>run(req,(tx,userId)=>space(tx,userId,id(req),contentLocale(req))));
  app.post('/v1/spaces/:id/join',req=>run(req,async(tx,userId)=>{
   const v=schema.joinSpace.parse(req.body),s=await space(tx,userId,id(req));
   if(s.status!=='ACTIVE'||['BANNED','RESTRICTED'].includes(s.membership))throw fail('SPACE_RESTRICTED');
@@ -66,22 +71,22 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
    await tx.query(`INSERT INTO space_memberships(space_id,user_id,status,guidelines_version) VALUES($1,$2,'JOINED',$3) ON CONFLICT(space_id,user_id) DO UPDATE SET status='JOINED',guidelines_version=$3,joined_at=now(),left_at=NULL,updated_at=now()`,[s.id,userId,v.guidelinesVersion]);
    await event(tx,'official_space_join_completed',s.id);
   }
-  return space(tx,userId,s.id);
+  return space(tx,userId,s.id,contentLocale(req));
  }));
  app.post('/v1/spaces/:id/leave',req=>run(req,async(tx,userId)=>{
   const s=await space(tx,userId,id(req));
   if(s.membership==='JOINED'){
    await tx.query("UPDATE space_memberships SET status='LEFT',left_at=now(),updated_at=now() WHERE space_id=$1 AND user_id=$2",[s.id,userId]);await event(tx,'official_space_left',s.id);
   }
-  return space(tx,userId,s.id);
+  return space(tx,userId,s.id,contentLocale(req));
  }));
  app.get('/v1/spaces/:id/posts',req=>run(req,async(tx,userId)=>{
   const s=await space(tx,userId,id(req));requirePermission(s,'read');
   // Authors also see their own posts while they wait for review; nobody else does.
   const rows=(await tx.query(`SELECT p.* FROM space_posts p WHERE p.space_id=$2 AND (p.status='VISIBLE' OR (p.status='PENDING_REVIEW' AND p.author_user_id=$1)) AND ${blockedSql} ORDER BY (p.identity_mode='ANNOUNCEMENT') DESC,p.created_at DESC LIMIT 50`,[userId,s.id])).rows;
-  return Promise.all(rows.map(p=>projectPost(tx,userId,p)));
+  return Promise.all(rows.map(p=>projectPost(tx,userId,p,contentLocale(req))));
  }));
- app.get('/v1/space-posts/:id',req=>run(req,async(tx,userId)=>projectPost(tx,userId,(await post(tx,userId,id(req))).p)));
+ app.get('/v1/space-posts/:id',req=>run(req,async(tx,userId)=>projectPost(tx,userId,(await post(tx,userId,id(req))).p,contentLocale(req))));
  app.post('/v1/spaces/:id/posts',req=>run(req,async(tx,userId)=>{
   const v=schema.postInput.parse(req.body),s=await space(tx,userId,id(req));requirePermission(s,'post');
   const profile=(await tx.query('SELECT allow_anonymous_posting FROM member_profiles WHERE user_id=$1',[userId])).rows[0];
@@ -100,12 +105,12 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
  app.post('/v1/space-posts/:id/reactions',req=>run(req,async(tx,userId)=>{
   const v=schema.reactionInput.parse(req.body),{p,s}=await post(tx,userId,id(req));
   const added=await tx.query('INSERT INTO space_reactions(post_id,user_id,type) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[p.id,userId,v.type]);
-  if(added.rowCount)await event(tx,'support_reaction_added',s.id);return projectPost(tx,userId,p);
+  if(added.rowCount)await event(tx,'support_reaction_added',s.id);return projectPost(tx,userId,p,contentLocale(req));
  }));
  app.delete('/v1/space-posts/:id/reactions/:type',req=>run(req,async(tx,userId)=>{
   const v=schema.reactionInput.parse({type:(req.params as Record<string,string>).type}),{p}=await post(tx,userId,id(req));
   await tx.query('DELETE FROM space_reactions WHERE post_id=$1 AND user_id=$2 AND type=$3',[p.id,userId,v.type]);
-  return projectPost(tx,userId,p);
+  return projectPost(tx,userId,p,contentLocale(req));
  }));
  app.get('/v1/space-posts/:id/comments',req=>run(req,async(tx,userId)=>{
   await post(tx,userId,id(req));
