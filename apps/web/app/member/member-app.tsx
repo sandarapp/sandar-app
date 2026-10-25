@@ -3,17 +3,22 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ClientError } from '../../../../packages/auth-client/src/client';
 import { resolveDestination } from '../../../../packages/auth-client/src/destination';
-import { memberClient } from './client';
-import { helpLines } from './copy';
+import type { Space } from '../../../../packages/contracts/src/spaces';
+import { apiLocale, LangSwitch, useLang } from '../i18n';
+import { call, handOffSearch, memberClient, setApiLocale } from './client';
+import { HelpButton } from './help';
 import { Onboarding } from './onboarding';
 import { Home } from './home';
 import { Discover } from './discover';
 import { SpacePage } from './space';
+import { Profile } from './profile';
 
-export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'space'; id: string };
+export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'profile' } | { name: 'space'; id: string };
 
 export function MemberApp({ route }: { route: MemberRoute }) {
+  const { lang,t } = useLang();
   const [ready,setReady] = useState(false),[failed,setFailed] = useState(false);
+  setApiLocale(apiLocale(lang));
   useEffect(() => {
     let active = true;
     // The server decides where this account may be; the URL is only a wish.
@@ -31,45 +36,63 @@ export function MemberApp({ route }: { route: MemberRoute }) {
     return () => { active = false; };
   },[route.name]);
 
-  if (failed) return <Shell route={route}><div className="m-empty"><h1>Belum bisa memuat Sandar.</h1><p>Periksa koneksimu, lalu muat ulang halaman ini.</p><button className="m-button" onClick={() => window.location.reload()}>Muat ulang</button></div></Shell>;
-  if (!ready) return <Shell route={route}><p className="m-loading" role="status">Memuat…</p></Shell>;
-  return <Shell route={route}>
-    {route.name === 'onboarding' && <Onboarding/>}
-    {route.name === 'home' && <Home/>}
-    {route.name === 'discover' && <Discover/>}
-    {route.name === 'space' && <SpacePage id={route.id}/>}
+  if (route.name === 'onboarding') return ready ? <Onboarding/> : <Bare failed={failed}/>;
+  return <Shell route={route} ready={ready}>
+    {failed ? <div className="empty"><h1 className="h serif">{t('shell.loadFail')}</h1><p className="p">{t('shell.loadFail.p')}</p><button className="btn" onClick={() => window.location.reload()}>{t('common.reload')}</button></div>
+      : !ready ? <p className="loading" role="status">{t('common.loading')}</p>
+      : <>
+        {route.name === 'home' && <Home/>}
+        {route.name === 'discover' && <Discover/>}
+        {route.name === 'profile' && <Profile/>}
+        {route.name === 'space' && <SpacePage id={route.id}/>}
+      </>}
   </Shell>;
 }
 
-function Shell({ route,children }: { route: MemberRoute; children: React.ReactNode }) {
-  const [help,setHelp] = useState(false),[leaving,setLeaving] = useState(false);
-  const logout = async () => {
-    setLeaving(true);
-    try { await memberClient().logout(); } catch { /* The server clears the cookie; go to login either way. */ }
-    window.location.assign('/login');
+function Bare({ failed }: { failed: boolean }) {
+  const { t } = useLang();
+  return <main className="bare">{failed ? <div className="empty"><h1 className="h serif">{t('shell.loadFail')}</h1><p className="p">{t('shell.loadFail.p')}</p><button className="btn" onClick={() => window.location.reload()}>{t('common.reload')}</button></div> : <p className="loading" role="status">{t('common.loading')}</p>}</main>;
+}
+
+function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; children: React.ReactNode }) {
+  const { t } = useLang();
+  const [mine,setMine] = useState<Space[]>([]),[q,setQ] = useState('');
+  useEffect(() => {
+    if (!ready) return;
+    call<Space[]>('/spaces').then(list => setMine(list.filter(s => s.membership === 'JOINED'))).catch(() => {});
+  },[ready]);
+  const nav = [
+    { href: '/home',key: 'nav.home' as const,on: route.name === 'home' },
+    { href: '/discover',key: 'nav.discover' as const,on: route.name === 'discover' },
+    { href: '/profile',key: 'nav.profile' as const,on: route.name === 'profile' }
+  ];
+  const search = (event: React.FormEvent) => {
+    event.preventDefault();
+    handOffSearch(q.trim());
+    window.location.assign('/discover');
   };
-  const onboarding = route.name === 'onboarding';
-  return <div className="m-page">
-    <header className="m-header">
-      <Link href={onboarding ? '/onboarding' : '/home'} className="m-brand">Sandar</Link>
-      {!onboarding && <nav className="m-nav" aria-label="Menu utama">
-        <Link href="/home" aria-current={route.name === 'home' ? 'page' : undefined}>Beranda</Link>
-        <Link href="/discover" aria-current={route.name === 'discover' ? 'page' : undefined}>Jelajah</Link>
-      </nav>}
-      <div className="m-header-actions">
-        <button className="m-help-button" onClick={() => setHelp(true)}>Butuh bantuan?</button>
-        <button className="m-text" onClick={() => void logout()} disabled={leaving}>Keluar</button>
-      </div>
+  return <div className="app">
+    <header className="top">
+      <Link href="/home" className="wordmark serif">Sandar</Link>
+      {route.name !== 'discover' && <form className="top-search" role="search" onSubmit={search}><input className="search" type="search" aria-label={t('search.label')} placeholder={t('search.placeholder')} value={q} maxLength={100} onChange={e => setQ(e.target.value)}/></form>}
+      <span className="grow"/>
+      <LangSwitch/>
+      <HelpButton/>
+      <Link href="/profile" className="avatar" aria-label={t('nav.profile')}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="4" fill="none" stroke="currentColor" strokeWidth="1.6"/><path d="M4.5 20c1.4-3.6 4.3-5.4 7.5-5.4s6.1 1.8 7.5 5.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg></Link>
     </header>
-    <main className="m-main">{children}</main>
-    {help && <div className="m-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" onClick={() => setHelp(false)}>
-      <div className="m-sheet" onClick={event => event.stopPropagation()}>
-        <h2 id="help-title">Kalau sedang darurat, jangan tunggu di sini.</h2>
-        <p>Sandar adalah dukungan sebaya, bukan layanan darurat. Hubungi layanan resmi ini:</p>
-        <ul className="m-help-list">{helpLines.map(line => <li key={line.n}><a href={`tel:${line.n.split(' ')[0]!.replace(/\D/g,'')}`}>{line.n}</a><span>{line.l}</span></li>)}</ul>
-        <p className="m-small">Layanan resmi Kementerian Kesehatan, bukan dari Sandar.</p>
-        <button className="m-button" onClick={() => setHelp(false)} autoFocus>Tutup</button>
-      </div>
-    </div>}
+    <div className="app-body">
+      <nav className="rail" aria-label={t('nav.main')}>
+        {nav.map(item => <Link key={item.href} href={item.href} className={item.on ? 'ri on' : 'ri'} aria-current={item.on ? 'page' : undefined}>{t(item.key)}</Link>)}
+        {mine.length > 0 && <><p className="rail-group">{t('nav.mySpaces')}</p>{mine.map(s => {
+          const on = route.name === 'space' && route.id === s.id;
+          return <Link key={s.id} href={`/spaces/${s.id}`} className={on ? 'ri small on' : 'ri small'} aria-current={on ? 'page' : undefined}>{s.name}</Link>;
+        })}</>}
+        <p className="soon">{t('nav.soon')}</p>
+      </nav>
+      <main className="app-main">{children}</main>
+    </div>
+    <nav className="bottom-nav" aria-label={t('nav.main')}>
+      {nav.map(item => <Link key={item.href} href={item.href} className={item.on ? 'on' : ''} aria-current={item.on ? 'page' : undefined}><i aria-hidden="true"/>{t(item.key)}</Link>)}
+    </nav>
   </div>;
 }
