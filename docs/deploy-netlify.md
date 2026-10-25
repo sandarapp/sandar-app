@@ -84,3 +84,9 @@ npm run spaces:posting -- --open                         # --close to close agai
 Moderators review posts and reports at `/moderation` in the web app. Each
 decision is written to the append-only `moderation_actions` table. Comments stay
 closed.
+
+## 6. App address
+
+The app is served at `https://app.hellosandar.com` (Netlify custom domain;
+`APP_BASE_URL` must match it, since the API only accepts requests from that
+origin). `netlify.toml` redirects `sandar-app.netlify.app` there with a 301.
