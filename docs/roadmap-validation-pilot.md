@@ -479,9 +479,8 @@ idempotent server-side webhook.
 ### Seller
 
 In this pilot the seller of every paid offer is **Sandar** (the operating legal
-entity, named in full). The training partner is never a seller and is not named
-in the product (owner decision, 25 Oct 2026). Communities may host or refer,
-and are named as such, but are not sellers, because community payouts and splits are not built. The
+entity, named in full). Communities may host or refer, and are named as such,
+but are not sellers, because community payouts and splits are not built. The
 seller and the refund policy version are shown before payment and stored on
 the order.
 

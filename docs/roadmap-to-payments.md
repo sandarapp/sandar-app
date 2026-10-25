@@ -81,9 +81,7 @@ Legal and operational groundwork comes first; none of it is code.
    payment terms for communities and the training partner, updated Privacy
    Notice. Every seller (Sandar or the named community) and the refund policy
    version are shown to the buyer before payment; there are no hidden or
-   unnamed sellers. The training partner is never a seller and is not named in
-   the product; if it ever becomes a seller, it must be named to the buyer as
-   the seller before payment.
+   unnamed sellers.
 2. Payment gateway: choose Midtrans or Xendit (QRIS, virtual accounts,
    e-wallets, cards); open a merchant account; sandbox keys.
 3. Catalogue: paid programs and trainings with price, named seller (Sandar
