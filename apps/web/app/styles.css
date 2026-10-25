@@ -162,6 +162,21 @@ a.sp:hover{transform:translateY(-2px);color:var(--ink)}
 .react.on{background:var(--sel);border-color:var(--accent);color:var(--accent-dark)}
 .react.quiet{border-color:transparent;text-decoration:underline;text-underline-offset:3px}
 
+/* Posting and moderation */
+.composer{display:flex;flex-direction:column;gap:10px;background:var(--card);border-radius:22px;padding:18px 20px}
+.area{height:auto;min-height:110px;padding:12px 14px;resize:vertical;line-height:1.5}
+.composer-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.composer-row .check{flex:1}
+.composer-help{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.post.pending{opacity:.92}
+.tag-review{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;background:#FFF3D6;color:#6B4400;font-size:11px;font-weight:700;letter-spacing:.06em}
+.tag-review.urgent{background:#FBE8DF;color:#8F3425}
+.mod-list{list-style:none;display:flex;flex-direction:column;gap:14px}
+.mod-item{background:var(--card);border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.mod-body{white-space:pre-wrap;overflow-wrap:anywhere}
+.mod-actions{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.lbl.compact{min-width:220px;flex:1}.lbl.compact .in{height:44px;font-size:14px}
+.wide-ish{max-width:820px}
+
 /* Onboarding (WA-02) */
 .onb{min-height:100svh;display:flex;flex-direction:column}
 .bar{position:sticky;top:0;z-index:20;height:64px;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--bg);border-bottom:1px solid var(--line)}

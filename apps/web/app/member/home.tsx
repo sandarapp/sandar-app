@@ -67,7 +67,7 @@ export function Home() {
         <div className="dashed"><strong className="serif">{t('home.noCommunities')}</strong><p className="sm">{t('home.noCommunities.p')}</p></div>
       </section>
 
-      <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.home')}</p>
+      {!spaces.some(s => s.permissions.post) && <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.home')}</p>}
     </div>
     <aside className="side-card">
       <h2 className="q">{t('shell.boundaries')}</h2>

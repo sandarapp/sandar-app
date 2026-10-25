@@ -12,8 +12,9 @@ import { Home } from './home';
 import { Discover } from './discover';
 import { SpacePage } from './space';
 import { Profile } from './profile';
+import { Moderation } from './moderation';
 
-export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'profile' } | { name: 'space'; id: string };
+export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'profile' } | { name: 'moderation' } | { name: 'space'; id: string };
 
 export function MemberApp({ route }: { route: MemberRoute }) {
   const { lang,t } = useLang();
@@ -44,6 +45,7 @@ export function MemberApp({ route }: { route: MemberRoute }) {
         {route.name === 'home' && <Home/>}
         {route.name === 'discover' && <Discover/>}
         {route.name === 'profile' && <Profile/>}
+        {route.name === 'moderation' && <Moderation/>}
         {route.name === 'space' && <SpacePage id={route.id}/>}
       </>}
   </Shell>;
@@ -56,15 +58,17 @@ function Bare({ failed }: { failed: boolean }) {
 
 function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; children: React.ReactNode }) {
   const { t } = useLang();
-  const [mine,setMine] = useState<Space[]>([]),[q,setQ] = useState('');
+  const [mine,setMine] = useState<Space[]>([]),[q,setQ] = useState(''),[moderator,setModerator] = useState(false);
   useEffect(() => {
     if (!ready) return;
     call<Space[]>('/spaces').then(list => setMine(list.filter(s => s.membership === 'JOINED'))).catch(() => {});
+    call<{ moderator: boolean }>('/moderation/me').then(r => setModerator(r.moderator)).catch(() => {});
   },[ready]);
   const nav = [
     { href: '/home',key: 'nav.home' as const,on: route.name === 'home' },
     { href: '/discover',key: 'nav.discover' as const,on: route.name === 'discover' },
-    { href: '/profile',key: 'nav.profile' as const,on: route.name === 'profile' }
+    { href: '/profile',key: 'nav.profile' as const,on: route.name === 'profile' },
+    ...(moderator ? [{ href: '/moderation',key: 'nav.moderation' as const,on: route.name === 'moderation' }] : [])
   ];
   const search = (event: React.FormEvent) => {
     event.preventDefault();

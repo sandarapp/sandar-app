@@ -69,7 +69,8 @@ describe('production hardening', () => {
     await app.inject({ method: 'POST', url: `/v1/spaces/${spaceId}/join`, headers: auth, payload: { accepted: true, guidelinesVersion: 'v1' } });
     const posted = await app.inject({ method: 'POST', url: `/v1/spaces/${spaceId}/posts`, headers: auth, payload: { requestId: randomUUID(), identityMode: 'PROFILE', body: 'A hard week.' } });
     expect(posted.json().data.status).toBe('PENDING_REVIEW');
-    expect((await app.inject({ method: 'GET', url: `/v1/spaces/${spaceId}/posts`, headers: auth })).json().data).toEqual([]);
+    // Only the author sees a held post, marked as in review.
+    expect((await app.inject({ method: 'GET', url: `/v1/spaces/${spaceId}/posts`, headers: auth })).json().data.map((p: { status: string; own: boolean }) => [p.status, p.own])).toEqual([['PENDING_REVIEW', true]]);
   });
 });
 

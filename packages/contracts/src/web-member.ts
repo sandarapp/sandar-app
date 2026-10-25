@@ -1,6 +1,6 @@
 // Member endpoints the browser may reach through its cookie. Each entry is a
-// method and a path pattern below /v1; anything else is a 404. Posting and
-// commenting are deliberately absent until moderation is staffed.
+// method and a path pattern below /v1; anything else is a 404. Posting is open
+// (every post waits for human review); commenting stays absent.
 const id = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const memberRoutes: [string, RegExp][] = [
   ['GET', /^users\/me$/],
@@ -17,11 +17,15 @@ const memberRoutes: [string, RegExp][] = [
   ['POST', /^spaces\/analytics$/],
   ['GET', new RegExp(`^spaces/${id}(/posts)?$`)],
   ['POST', new RegExp(`^spaces/${id}/(join|leave)$`)],
+  ['POST', new RegExp(`^spaces/${id}/posts$`)],
   ['GET', new RegExp(`^space-posts/${id}(/comments)?$`)],
   ['POST', new RegExp(`^space-posts/${id}/reactions$`)],
   ['DELETE', new RegExp(`^space-posts/${id}/reactions/(SUPPORT|RELATE|ENCOURAGEMENT)$`)],
   ['POST', new RegExp(`^space-(posts|comments)/${id}/(report|block-author)$`)],
-  ['GET', /^community-applications\/me$/]
+  ['GET', /^community-applications\/me$/],
+  ['GET', /^moderation\/(me|queue)$/],
+  ['POST', new RegExp(`^moderation/posts/${id}/decision$`)],
+  ['POST', new RegExp(`^moderation/reports/${id}/dismiss$`)]
 ];
 export function memberRouteAllowed(method: string, path: string) {
   return memberRoutes.some(([m, pattern]) => m === method && pattern.test(path));

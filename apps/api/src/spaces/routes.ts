@@ -51,7 +51,7 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
  async function projectPost(tx:Transaction,userId:string,p:Record<string,unknown>):Promise<schema.SpacePost>{
   const profile=p.identity_mode==='PROFILE'?(await tx.query('SELECT display_name FROM member_profiles WHERE user_id=$1',[p.author_user_id])).rows[0]:null;
   const reactions=(await tx.query('SELECT type FROM space_reactions WHERE post_id=$1 AND user_id=$2',[p.id,userId])).rows;
-  return {id:p.id as string,body:p.body as string,identityMode:p.identity_mode as schema.SpacePost['identityMode'],authorName:p.identity_mode==='ANONYMOUS'?'Anonymous Member':p.identity_mode==='ANNOUNCEMENT'?'Sandar Team':profile?.display_name??'Member',createdAt:(p.created_at as Date).toISOString(),own:p.author_user_id===userId,canBlock:Boolean(p.author_user_id&&p.author_user_id!==userId),reactions:(['SUPPORT','RELATE','ENCOURAGEMENT'] as const).map(type=>({type,selected:reactions.some(r=>r.type===type)}))};
+  return {id:p.id as string,body:p.body as string,identityMode:p.identity_mode as schema.SpacePost['identityMode'],status:p.status==='PENDING_REVIEW'?'PENDING_REVIEW':'VISIBLE',authorName:p.identity_mode==='ANONYMOUS'?'Anonymous Member':p.identity_mode==='ANNOUNCEMENT'?'Sandar Team':profile?.display_name??'Member',createdAt:(p.created_at as Date).toISOString(),own:p.author_user_id===userId,canBlock:Boolean(p.author_user_id&&p.author_user_id!==userId),reactions:(['SUPPORT','RELATE','ENCOURAGEMENT'] as const).map(type=>({type,selected:reactions.some(r=>r.type===type)}))};
  }
  app.get('/v1/spaces',req=>run(req,async(tx,userId)=>{
   const rows=(await tx.query("SELECT id FROM support_spaces WHERE kind='OFFICIAL_SANDAR' ORDER BY created_at,id")).rows;
@@ -77,7 +77,8 @@ export function addSpaces(app:FastifyInstance,db:Database,auth:AuthService,safet
  }));
  app.get('/v1/spaces/:id/posts',req=>run(req,async(tx,userId)=>{
   const s=await space(tx,userId,id(req));requirePermission(s,'read');
-  const rows=(await tx.query(`SELECT p.* FROM space_posts p WHERE p.space_id=$2 AND p.status='VISIBLE' AND ${blockedSql} ORDER BY (p.identity_mode='ANNOUNCEMENT') DESC,p.created_at DESC LIMIT 50`,[userId,s.id])).rows;
+  // Authors also see their own posts while they wait for review; nobody else does.
+  const rows=(await tx.query(`SELECT p.* FROM space_posts p WHERE p.space_id=$2 AND (p.status='VISIBLE' OR (p.status='PENDING_REVIEW' AND p.author_user_id=$1)) AND ${blockedSql} ORDER BY (p.identity_mode='ANNOUNCEMENT') DESC,p.created_at DESC LIMIT 50`,[userId,s.id])).rows;
   return Promise.all(rows.map(p=>projectPost(tx,userId,p)));
  }));
  app.get('/v1/space-posts/:id',req=>run(req,async(tx,userId)=>projectPost(tx,userId,(await post(tx,userId,id(req))).p)));

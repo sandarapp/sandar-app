@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Space, SpacePost } from '../../../../packages/contracts/src/spaces';
 import { useLang } from '../i18n';
+import { HelpButton } from './help';
 import { call, codeOf } from './client';
 import { errorKey, reactionTypes, reportReasons, ruleKeys, spacePhoto, timeAgo } from './copy';
 
@@ -71,7 +72,7 @@ export function SpacePage({ id }: { id: string }) {
             <button className="btn fit" onClick={() => void join()} disabled={!agree || busy}>{busy ? t('common.working') : t('space.join')}</button>
           </>}
       </section> : <>
-        <p className="alert a-info">{space.permissions.post ? t('space.canPost') : <><strong>{t('closed.title')}</strong> {t('closed.space')}</>}</p>
+        {space.permissions.post ? <Composer space={space} onSent={async () => { setNotice(t('compose.sent'));await loadPosts(space); }}/> : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.space')}</p>}
         <section aria-label={t('space.posts')}>
           {posts === null ? <p className="loading" role="status">{t('space.loadingPosts')}</p>
             : posts.length === 0 ? <div className="dashed"><strong className="serif">{t('space.noPosts')}</strong><p className="sm">{t('space.noPosts.p')}</p></div>
@@ -97,7 +98,7 @@ function Post({ post,onChange,onGone,onNotice,onError }: { post: SpacePost; onCh
     document.addEventListener('keydown',key);
     return () => document.removeEventListener('keydown',key);
   },[panel]);
-  const announcement = post.identityMode === 'ANNOUNCEMENT';
+  const announcement = post.identityMode === 'ANNOUNCEMENT',pending = post.status === 'PENDING_REVIEW';
   const author = announcement ? t('post.team') : post.identityMode === 'ANONYMOUS' ? t('post.anonymous') : post.authorName;
 
   async function toggle(type: string,selected: boolean) {
@@ -123,16 +124,17 @@ function Post({ post,onChange,onGone,onNotice,onError }: { post: SpacePost; onCh
     catch (e) { onError(codeOf(e)); } finally { setBusy(null); }
   }
 
-  return <li className={announcement ? 'post announcement' : 'post'}>
+  return <li className={announcement ? 'post announcement' : pending ? 'post pending' : 'post'}>
     <div className="who"><span className="pa" aria-hidden="true"/><div><strong>{author}</strong><p className="sm">{timeAgo(post.createdAt,lang,t)}</p></div></div>
+    {pending && <p className="sm"><span className="tag-review">{t('post.pending')}</span> {t('post.pending.p')}</p>}
     <p className="p">{post.body}</p>
-    <div className="acts" role="group" aria-label={t('post.reactions')}>
+    {!pending && <div className="acts" role="group" aria-label={t('post.reactions')}>
       {reactionTypes.map(type => {
         const selected = post.reactions.find(x => x.type === type)?.selected ?? false;
         return <button key={type} type="button" className={selected ? 'react on' : 'react'} aria-pressed={selected} disabled={busy !== null} onClick={() => void toggle(type,selected)}>{t(`react.${type}`)}</button>;
       })}
       {!post.own && !announcement && <button type="button" className="react quiet" aria-expanded={panel} onClick={() => setPanel(true)}>{t('report.open')}</button>}
-    </div>
+    </div>}
     {panel && <div className="scrim side" onClick={() => setPanel(false)}>
       <div className="drawer" role="dialog" aria-modal="true" aria-labelledby={`report-${post.id}`} onClick={event => event.stopPropagation()}>
         <h2 id={`report-${post.id}`} className="h3 serif">{t('report.title')}</h2>
@@ -149,4 +151,35 @@ function Post({ post,onChange,onGone,onNotice,onError }: { post: SpacePost; onCh
       </div>
     </div>}
   </li>;
+}
+
+// Text-only composer. The request id stays the same until a post is accepted,
+// so a retried submit never creates a second post.
+function Composer({ space,onSent }: { space: Space; onSent: () => Promise<void> }) {
+  const { t } = useLang();
+  const [body,setBody] = useState(''),[anonymous,setAnonymous] = useState(false),[busy,setBusy] = useState(false),[error,setError] = useState('');
+  const requestId = useRef(crypto.randomUUID());
+  const send = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy || !body.trim()) return;
+    setBusy(true);setError('');
+    try {
+      await call(`/spaces/${space.id}/posts`,{ method: 'POST',body: { requestId: requestId.current,identityMode: anonymous ? 'ANONYMOUS' : 'PROFILE',body: body.trim() } });
+      requestId.current = crypto.randomUUID();setBody('');setAnonymous(false);
+      await onSent();
+    } catch (e) { setError(codeOf(e)); }
+    finally { setBusy(false); }
+  };
+  return <form className="composer" onSubmit={send}>
+    <label className="lbl" htmlFor={`compose-${space.id}`}>{t('compose.label')}</label>
+    <textarea id={`compose-${space.id}`} className="in area" value={body} maxLength={1000} rows={4} placeholder={t('compose.placeholder')} onChange={e => { setBody(e.target.value);requestId.current = crypto.randomUUID(); }} disabled={busy}/>
+    {error && <p className="alert a-err" role="alert">{t(errorKey(error))}</p>}
+    <div className="composer-row">
+      {space.permissions.anonymous ? <label className="check"><input type="checkbox" checked={anonymous} onChange={e => setAnonymous(e.target.checked)} disabled={busy}/><span>{t('compose.anon')}</span></label> : <span/>}
+      <span className="sm">{t('compose.count',{ n: body.length })}</span>
+      <button className="btn" type="submit" disabled={busy || !body.trim()}>{busy ? t('common.working') : t('compose.submit')}</button>
+    </div>
+    <p className="sm">{t('compose.review')}</p>
+    <p className="sm composer-help">{t('compose.crisis')} <HelpButton/></p>
+  </form>;
 }
