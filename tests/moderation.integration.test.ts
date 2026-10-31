@@ -28,7 +28,7 @@ beforeEach(async()=>{
  await db.query("INSERT INTO support_spaces(id,kind,name,purpose,audience,topic,operator_name,status,guidelines_version,posting_enabled) VALUES($1,'OFFICIAL_SANDAR','Work Stress','Peer support','Adults','Work','Sandar','ACTIVE','test-v1',true)",[spaceId]);
  author=await member('author@example.invalid','Author Name');reader=await member('reader@example.invalid','Reader');moderator=await member('mod@example.invalid','Moderator');
  for(const who of [author,reader])await call('POST',`/spaces/${spaceId}/join`,who,{accepted:true,guidelinesVersion:'test-v1'});
- await db.query("INSERT INTO staff_roles(user_id,role) VALUES($1,'MODERATOR')",[moderator.id]);
+ await db.query("INSERT INTO staff_roles(user_id,role) VALUES($1,'MODERATOR')",[moderator.id]);await db.query('UPDATE sessions SET ops_verified_at=now(),ops_seen_at=now() WHERE user_id=$1',[moderator.id]);
 });
 afterAll(async()=>{await app.close();await db.end();});
 

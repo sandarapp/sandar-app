@@ -28,7 +28,7 @@ beforeAll(()=>migrate(db));
 beforeEach(async()=>{
  await db.query('TRUNCATE users,support_spaces,rate_limits,email_outbox CASCADE');
  host=await member('host@example.invalid','Rani');other=await member('other@example.invalid','Budi');mod=await member('mod@example.invalid','Mod');
- await db.query("INSERT INTO staff_roles(user_id,role) VALUES($1,'MODERATOR')",[mod.id]);
+ await db.query("INSERT INTO staff_roles(user_id,role) VALUES($1,'MODERATOR')",[mod.id]);await db.query('UPDATE sessions SET ops_verified_at=now(),ops_seen_at=now() WHERE user_id=$1',[mod.id]);
 });
 afterAll(async()=>{await app.close();await db.end();});
 describe('Spaces started by members',()=>{

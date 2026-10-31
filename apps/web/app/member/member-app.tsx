@@ -19,10 +19,9 @@ import { MySpaces } from './my-spaces';
 import { Notifications } from './notifications';
 import { Feedback } from './feedback';
 import { Icon } from './icons';
-import { Moderation } from './moderation';
 import { Welcome } from './welcome';
 
-export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'profile' } | { name: 'settings' } | { name: 'my-spaces' } | { name: 'notifications' } | { name: 'moderation' } | { name: 'welcome' } | { name: 'space'; id: string };
+export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'profile' } | { name: 'settings' } | { name: 'my-spaces' } | { name: 'notifications' } | { name: 'welcome' } | { name: 'space'; id: string };
 
 export function MemberApp({ route }: { route: MemberRoute }) {
   const { lang,t } = useLang();
@@ -58,7 +57,6 @@ export function MemberApp({ route }: { route: MemberRoute }) {
         {route.name === 'settings' && <Settings/>}
         {route.name === 'my-spaces' && <MySpaces/>}
         {route.name === 'notifications' && <Notifications/>}
-        {route.name === 'moderation' && <Moderation/>}
         {route.name === 'space' && <SpacePage id={route.id}/>}
       </>}
   </Shell>;
@@ -71,10 +69,9 @@ function Bare({ failed }: { failed: boolean }) {
 
 function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; children: React.ReactNode }) {
   const { t } = useLang();
-  const [q,setQ] = useState(''),[moderator,setModerator] = useState(false),[unread,setUnread] = useState(0),[menu,setMenu] = useState(false),[feedback,setFeedback] = useState(false),[open,setOpen] = useState(false),[name,setName] = useState('');
+  const [q,setQ] = useState(''),[unread,setUnread] = useState(0),[menu,setMenu] = useState(false),[feedback,setFeedback] = useState(false),[open,setOpen] = useState(false),[name,setName] = useState('');
   useEffect(() => {
     if (!ready) return;
-    call<{ moderator: boolean }>('/moderation/me').then(r => setModerator(r.moderator)).catch(() => {});
     call<MemberNotification[]>('/notifications').then(list => setUnread(list.filter(n => n.unread).length)).catch(() => {});
     call<HomeData>('/home').then(h => setName(h.displayName)).catch(() => {});
   },[ready]);
@@ -100,7 +97,7 @@ function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; c
       <HelpButton/>
       <span className="account">
         <button type="button" className="avatar" aria-label={t('menu.account')} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(v => !v)}><Icon name="profile" size={20}/></button>
-        {menu && <AccountMenu name={name} moderator={moderator} onClose={() => setMenu(false)} onFeedback={() => { setMenu(false);setFeedback(true); }}/>}
+        {menu && <AccountMenu name={name} onClose={() => setMenu(false)} onFeedback={() => { setMenu(false);setFeedback(true); }}/>}
       </span>
     </header>
     <div className="app-body">
@@ -108,7 +105,6 @@ function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; c
         <div className={open ? 'rail-in open' : 'rail-in'}>
           <button type="button" className="ri rail-toggle" aria-label={t('nav.toggle')} aria-expanded={open} onClick={() => setOpen(v => !v)}><Icon name="menu"/></button>
           {nav.map(item => <Link key={item.href} href={item.href} className={item.on ? 'ri on' : 'ri'} aria-current={item.on ? 'page' : undefined} title={t(item.key)}><Icon name={item.icon}/><span className="ri-label">{t(item.key)}</span>{badge(item.badge)}</Link>)}
-          {moderator && <Link href="/moderation" className={route.name === 'moderation' ? 'ri on' : 'ri'} title={t('nav.moderation')}><Icon name="shield"/><span className="ri-label">{t('nav.moderation')}</span></Link>}
           <span className="grow"/>
           <button type="button" className="ri quiet" title={t('fb.title')} onClick={() => setFeedback(true)}><Icon name="chat"/><span className="ri-label">{t('fb.title')}</span></button>
         </div>
@@ -123,7 +119,7 @@ function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; c
 }
 
 // WA-08b: a small popup on the avatar, a bottom sheet on phones. Log out never asks first.
-function AccountMenu({ name,moderator,onClose,onFeedback }: { name: string; moderator: boolean; onClose: () => void; onFeedback: () => void }) {
+function AccountMenu({ name,onClose,onFeedback }: { name: string; onClose: () => void; onFeedback: () => void }) {
   const { t } = useLang();
   const box = useRef<HTMLDivElement>(null),[leaving,setLeaving] = useState(false);
   useEffect(() => {
@@ -143,7 +139,6 @@ function AccountMenu({ name,moderator,onClose,onFeedback }: { name: string; mode
     <Link role="menuitem" className="menu-item strong" href="/profile"><span className="grow">{name}<span className="sm block">{t('menu.viewProfile')}</span></span><span aria-hidden="true">›</span></Link>
     <button role="menuitem" type="button" className="menu-item" onClick={onFeedback}>{t('fb.title')}</button>
     <Link role="menuitem" className="menu-item" href="/settings">{t('menu.settings')}</Link>
-    {moderator && <Link role="menuitem" className="menu-item only-phone" href="/moderation">{t('nav.moderation')}</Link>}
     <button role="menuitem" type="button" className="menu-item" onClick={() => void logout()} disabled={leaving}>{t('common.logout')}</button>
   </div>;
 }

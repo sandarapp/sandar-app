@@ -5,6 +5,7 @@ import type {SafetyClassifier} from './spaces/safety.js';
 import {addSpaces} from './spaces/routes.js';
 import {addMemberSpaces} from './spaces/member-spaces.js';
 import {addMemberExtras} from './member/routes.js';
+import {addOps} from './ops/routes.js';
 import {addModeration} from './moderation/routes.js';
 import {addSettings} from './settings/routes.js';
 import { addOnboarding } from './onboarding/routes.js';
@@ -115,6 +116,7 @@ export async function buildApp(options: { db: Database; email: EmailProvider; lo
   addMemberSpaces(app,options.db,options.safety);
   if(options.encryptionKey)addMemberExtras(app,options.db,{encryptionKey:options.encryptionKey,safety:options.safety});
   addModeration(app,options.db,auth);
+  if(options.encryptionKey)addOps(app,options.db,auth,{encryptionKey:options.encryptionKey});
   addSettings(app,options.db,auth);
   addMemberHome(app,options.db);
   addDiscovery(app,options.db);

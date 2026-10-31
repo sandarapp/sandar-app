@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { memberRouteAllowed } from '../../../../../../packages/contracts/src/web-member';
+import { hostAllows, memberRouteAllowed } from '../../../../../../packages/contracts/src/web-member';
+import { isOpsHost } from '../../../ops/host';
 const routes: Record<string,string> = {
   policies: 'GET', 'auth/register/member': 'POST', 'auth/register/community': 'POST',
   'auth/email/verify': 'POST', 'auth/email/resend': 'POST', 'auth/password/forgot': 'POST', 'auth/password/reset': 'POST',
@@ -29,8 +30,10 @@ async function proxy(request: NextRequest, context: {params: Promise<{path: stri
   const path = (await context.params).path.join('/');
   if (!allowed(request.method,path) || !queryAllowed(path,request.nextUrl.searchParams)) return failure(404,'NOT_FOUND','Halaman tidak ditemukan.');
   const origin = process.env.APP_BASE_URL ?? 'http://localhost:3000';
+  const onOps = isOpsHost(request.headers.get('host'),request.headers.get('x-forwarded-host'));
+  if (!hostAllows(path,process.env.OPS_BASE_URL ? onOps ? 'ops' : 'app' : 'single')) return failure(404,'NOT_FOUND','Halaman tidak ditemukan.');
   if (request.headers.get('x-sandar-client') !== 'web') return failure(403,'CSRF_REJECTED','Permintaan tidak diizinkan.');
-  if (request.method !== 'GET' && request.headers.get('origin') !== origin) return failure(403,'CSRF_REJECTED','Permintaan tidak diizinkan.');
+  if (request.method !== 'GET' && request.headers.get('origin') !== (onOps ? process.env.OPS_BASE_URL : origin)) return failure(403,'CSRF_REJECTED','Permintaan tidak diizinkan.');
   if (request.headers.get('sec-fetch-site') === 'cross-site') return failure(403,'CSRF_REJECTED','Permintaan tidak diizinkan.');
   let body: string | undefined;
   if (request.method === 'POST' || request.method === 'PATCH') {
