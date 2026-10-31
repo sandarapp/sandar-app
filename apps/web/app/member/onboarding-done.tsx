@@ -4,6 +4,7 @@ import type { DiscoveryData } from '../../../../packages/contracts/src/discovery
 import type { OnboardingState } from '../../../../packages/contracts/src/onboarding';
 import type { Space } from '../../../../packages/contracts/src/spaces';
 import { useLang } from '../i18n';
+import { HelpfulPrompt } from './feedback';
 import { call, codeOf } from './client';
 import { errorKey, label, spacePhoto } from './copy';
 
@@ -54,6 +55,7 @@ export function Done({ privacy,needs,goals }: { privacy: Privacy; needs: string[
         {space.membership === 'JOINED' ? <span className="chip-tag">{t('od.joined')}</span> : <button type="button" className="btn small" onClick={() => void join(space)} disabled={busy !== ''}>{busy === space.id ? t('common.working') : t('od.join')}</button>}
       </li>)}</ul>}
       {goals.includes('READ_QUIETLY') && <p className="alert a-info">{t('od.readFirst')}</p>}
+      <HelpfulPrompt moment="onboarding"/>
     </section>
   </div>;
 }

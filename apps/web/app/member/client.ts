@@ -48,3 +48,8 @@ export function handOffSearch(q: string) { try { sessionStorage.setItem(SEARCH_K
 export function takeSearch() {
   try { const q = sessionStorage.getItem(SEARCH_KEY) ?? '';sessionStorage.removeItem(SEARCH_KEY);return q; } catch { return ''; }
 }
+
+// On a shared device, nothing a member wrote stays behind after logging out.
+export function forgetDevice() {
+  try { for (const key of Object.keys(window.localStorage)) if (key.startsWith('sandar.')) window.localStorage.removeItem(key); } catch { /* Nothing to clear then. */ }
+}

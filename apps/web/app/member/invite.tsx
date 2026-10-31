@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useLang } from '../i18n';
 import { Illustration } from './ui';
 
-const friendKeys = ['pace','private','listen','away','outside'] as const;
+const friendKeys = ['pace','private','listen','away','mood','outside'] as const;
 const hostKeys = ['tone','host','details','anon','alone'] as const;
 
 // The boundaries in plain words: shown before starting or joining, and kept in Settings and on each space.
