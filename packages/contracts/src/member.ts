@@ -13,6 +13,6 @@ export const feedbackInput=z.strictObject({
 }).refine(v=>v.kind==='HELPFUL'||v.kind==='NOT_HELPFUL'||Boolean(v.body),{message:'Text is required'});
 export const profileInput=z.strictObject({bio:z.string().trim().max(160)});
 export interface MemberNotification {id:string;kind:'REPLY'|'SPACE_REVIEWED';spaceId:string;spaceName:string;actor:string|null;status:string|null;at:string;unread:boolean;}
-export interface MySpace {id:string;name:string;kind:'OFFICIAL_SANDAR'|'MEMBER_SPACE'|'PARTNER_COMMUNITY';status:string;hosted:boolean;joined:boolean;lastPostAt:string|null;}
+export interface MySpace {id:string;name:string;kind:'OFFICIAL_SANDAR'|'MEMBER_SPACE'|'PARTNER_COMMUNITY';status:string;hosted:boolean;joined:boolean;memberCount:number;newCount:number;lastPostAt:string|null;preview:{body:string;identityMode:'PROFILE'|'ANONYMOUS'|'ANNOUNCEMENT';authorName:string|null}|null;}
 export interface ProfilePost {id:string;body:string;identityMode:'PROFILE'|'ANONYMOUS';spaceId:string;spaceName:string;createdAt:string;commentCount:number;}
 export interface MemberProfile {displayName:string;bio:string;joinedAt:string;spaces:{id:string;name:string}[];posts:ProfilePost[];}

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { Pool, connection } from '../../../../../../packages/database/src/database';
 import { buildApp } from '../../../../../api/src/app';
 import { ResendEmailProvider } from '../../../../../api/src/notifications/resend-email';
+import { StagingEmailProvider } from '../../../../../api/src/notifications/staging-email';
 import { SelfHarmPhraseClassifier } from '../../../../../api/src/spaces/safety';
 
 // Runs the Sandar API inside the web app (SANDAR_API_MODE=in-process), for
@@ -26,22 +27,24 @@ let api: Promise<FastifyInstance> | null = null;
 let connects = 0;
 export const instanceStats = () => ({ connects });
 function instance() {
-  api ??= (async () => buildApp({
-    db: (() => {
-      const pool = new Pool({ ...connection(required('DATABASE_URL')), max: 3, idleTimeoutMillis: 300000, keepAlive: true, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
-      pool.on('connect', () => { connects++; });
-      // A connection dropped while the instance was frozen is replaced on the next request.
-      pool.on('error', () => {});
-      return pool;
-    })(),
-    email: new ResendEmailProvider(required('RESEND_API_KEY'), required('EMAIL_FROM'), required('APP_BASE_URL')),
+  api ??= (async () => {
+    const pool = new Pool({ ...connection(required('DATABASE_URL')), max: 3, idleTimeoutMillis: 300000, keepAlive: true, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
+    pool.on('connect', () => { connects++; });
+    // A connection dropped while the instance was frozen is replaced on the next request.
+    pool.on('error', () => {});
+    return buildApp({
+    db: pool,
+    email: process.env.STAGING_EMAIL_CAPTURE === 'on'
+      ? new StagingEmailProvider(pool, required('APP_BASE_URL'))
+      : new ResendEmailProvider(required('RESEND_API_KEY'), required('EMAIL_FROM'), required('APP_BASE_URL')),
     encryptionKey: required('DATA_ENCRYPTION_KEY'),
     webOrigin: required('APP_BASE_URL'),
     // Posts and comments publish at once; self-harm language is held back with crisis resources.
     safety: new SelfHarmPhraseClassifier(),
     bffSecret,
     emailFlushSecret: flushSecret
-  }))().catch(error => { api = null; throw error; });
+    });
+  })().catch(error => { api = null; throw error; });
   return api;
 }
 
