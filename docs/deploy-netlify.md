@@ -70,20 +70,23 @@ variables) and redeploy the website through a pull request.
 
 Same list as `deploy-production.md` §9, on the Netlify address.
 
-## 5. Member posting and moderation
+## 5. Member posting, comments and safety
 
-Every member post waits for a person to review it (`SAFETY_MODE=human-review`
-holds them all), so posting opens only once a moderator exists. From the
+Posts and comments publish at once. The in-process API uses the self-harm
+phrase filter (`SelfHarmPhraseClassifier`; `SAFETY_MODE=phrase-filter` on a
+separate API server): text that mentions suicide or self-harm is not stored,
+and the member sees crisis resources (Healing119.id, 119) instead. Members can
+report anything else; moderators handle reports at `/moderation`. From the
 laptop, with `DATABASE_URL` and `DATABASE_CA_CERT` set for Supabase:
 
 ```bash
+npm run spaces:posting -- --open --comments      # --close [--comments] to close again
 npm run moderation:grant -- <moderator's member email>   # add --revoke to remove
-npm run spaces:posting -- --open                         # --close to close again
 ```
 
-Moderators review posts and reports at `/moderation` in the web app. Each
-decision is written to the append-only `moderation_actions` table. Comments stay
-closed.
+Each moderation decision is written to the append-only `moderation_actions`
+table. Community accounts are hidden in the web app unless it is built with
+`NEXT_PUBLIC_COMMUNITY_FLOW=on`.
 
 ## 6. App address
 

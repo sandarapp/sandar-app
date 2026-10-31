@@ -4,7 +4,7 @@ import { buildApp } from './app.js';
 import { DevelopmentEmailProvider } from './notifications/development-email.js';
 import { SmtpEmailProvider } from './notifications/smtp-email.js';
 import { ResendEmailProvider } from './notifications/resend-email.js';
-import { HumanReviewSafetyClassifier } from './spaces/safety.js';
+import { HumanReviewSafetyClassifier, SelfHarmPhraseClassifier } from './spaces/safety.js';
 
 const secret = z.string().min(32);
 const config = z.object({
@@ -20,14 +20,14 @@ const config = z.object({
   DATA_ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(3).default(0),
   BFF_SHARED_SECRET: secret.optional(), EMAIL_FLUSH_SECRET: secret.optional(),
-  SAFETY_MODE: z.enum(['development','human-review']).default('development')
+  SAFETY_MODE: z.enum(['development','human-review','phrase-filter']).default('development')
 }).superRefine((c,ctx) => {
   const need = (ok: unknown,message: string) => { if (!ok) ctx.addIssue({ code: 'custom',message }); };
   if (c.EMAIL_PROVIDER === 'resend') need(c.RESEND_API_KEY && c.EMAIL_FROM,'Resend needs RESEND_API_KEY and EMAIL_FROM');
   if (c.EMAIL_PROVIDER === 'smtp') need(c.SMTP_HOST && c.SMTP_USER && c.SMTP_PASSWORD && c.EMAIL_FROM,'SMTP needs SMTP_HOST, SMTP_USER, SMTP_PASSWORD and EMAIL_FROM');
   if (c.NODE_ENV === 'production') {
     need(c.EMAIL_PROVIDER !== 'development','Production must send real email (EMAIL_PROVIDER=smtp or resend)');
-    need(c.SAFETY_MODE === 'human-review','Production needs SAFETY_MODE=human-review until a reviewed classifier exists');
+    need(c.SAFETY_MODE !== 'development','Production needs SAFETY_MODE=phrase-filter or human-review');
     need(c.APP_BASE_URL.startsWith('https://'),'Production APP_BASE_URL must use HTTPS');
     // EMAIL_FLUSH_SECRET is only needed on hosts that pause the CPU between requests (Cloud Run).
     need(c.BFF_SHARED_SECRET,'Production needs BFF_SHARED_SECRET');
@@ -43,7 +43,7 @@ const email = config.EMAIL_PROVIDER === 'resend'
   : new DevelopmentEmailProvider(config.DEV_EMAIL_DIRECTORY,config.APP_BASE_URL);
 const app = await buildApp({ db,email,logger: true,
   encryptionKey: config.DATA_ENCRYPTION_KEY,webOrigin: config.APP_BASE_URL,emailWorker: true,
-  ...(config.SAFETY_MODE === 'human-review' ? { safety: new HumanReviewSafetyClassifier() } : {}),
+  ...(config.SAFETY_MODE === 'human-review' ? { safety: new HumanReviewSafetyClassifier() } : config.SAFETY_MODE === 'phrase-filter' ? { safety: new SelfHarmPhraseClassifier() } : {}),
   trustProxyHops: config.TRUST_PROXY_HOPS,
   ...(config.BFF_SHARED_SECRET ? { bffSecret: config.BFF_SHARED_SECRET } : {}),
   ...(config.EMAIL_FLUSH_SECRET ? { emailFlushSecret: config.EMAIL_FLUSH_SECRET } : {}) });

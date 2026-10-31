@@ -5,6 +5,8 @@ import { resolveDestination,type CommunityStatus } from '../../../packages/auth-
 import { useAuthFlow } from '../../../packages/auth-client/src/use-auth-flow';
 import { parseAuthLink, type AuthScreen } from '../../../packages/auth-client/src/links';
 import { authErrorText, LangSwitch, noticeText, useLang } from './i18n';
+import { communityFlow } from './flags';
+import { Illustration, Wordmark } from './member/ui';
 
 const screens: AuthScreen[] = ['login','register','check-email','verify-email','forgot-password','reset-password','account'];
 /** Policy pages live wherever the active policy says; fall back to the app's own copy. */
@@ -37,7 +39,7 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
     };
     applyLink();
     // The website's "Register a community" button opens /register?type=community.
-    if (window.location.pathname === '/register' && new URLSearchParams(window.location.search).get('type') === 'community') { flowRef.current.setAccountType('community');window.history.replaceState(null,'','/register'); }
+    if (window.location.pathname === '/register' && new URLSearchParams(window.location.search).get('type') === 'community') { if (communityFlow) flowRef.current.setAccountType('community');window.history.replaceState(null,'','/register'); }
     if (window.location.pathname === '/login') void flowRef.current.restoreSession();
     const pop = async () => {
       const path = window.location.pathname.slice(1) as AuthScreen;
@@ -74,11 +76,10 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
   const title = success ? screen === 'verify-email' ? t('auth.title.verified') : t('auth.title.passwordUpdated') : t(`auth.title.${screen}`);
   return <main className="auth">
     <aside className="auth-brand" aria-label={t('auth.about')}>
-      <a className="wordmark serif" href="/login" onClick={event => { event.preventDefault();go('login'); }}>Sandar</a>
-      <p className="kicker">{t('auth.kicker')}</p>
+      <a className="wordmark-link" href="/login" aria-label="Sandar" onClick={event => { event.preventDefault();go('login'); }}><Wordmark size={34}/></a>
       <p className="auth-headline serif">{t('auth.headline')} <em>{t('auth.headlineEm')}</em>.</p>
       <p className="auth-lead">{t('auth.lead')}</p>
-      <div className="scene" aria-hidden="true"><span className="sun"/><span className="ridge"/><span className="ridge ridge2"/></div>
+      <Illustration/>
     </aside>
     <section className="auth-form">
       <div className="auth-top"><span className="sm">{step}</span><LangSwitch/></div>
@@ -100,7 +101,7 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
           <button className="btn2 wide" onClick={() => void flow.logout()} disabled={flow.busy}>{t('common.logout')}</button>
           {flow.error?.status === 401 && <button className="link-button" onClick={() => go('login')}>{t('auth.loginAgain')}</button>}
         </> : <form className="stack" noValidate onSubmit={event => { event.preventDefault();void flow.submit(); }}>
-          {screen === 'register' && <fieldset className="roles"><legend className="lbl">{t('auth.role.legend')}</legend>{(['member','community'] as const).map(type => <label key={type} className={flow.accountType === type ? 'role sel' : 'role'}><input type="radio" name="accountType" value={type} checked={flow.accountType === type} onChange={() => flow.setAccountType(type)} disabled={flow.busy}/><strong>{t(type === 'member' ? 'auth.role.member' : 'auth.role.community')}</strong><span className="sm">{t(type === 'member' ? 'auth.role.member.sub' : 'auth.role.community.sub')}</span></label>)}</fieldset>}
+          {screen === 'register' && communityFlow && <fieldset className="roles"><legend className="lbl">{t('auth.role.legend')}</legend>{(['member','community'] as const).map(type => <label key={type} className={flow.accountType === type ? 'role sel' : 'role'}><input type="radio" name="accountType" value={type} checked={flow.accountType === type} onChange={() => flow.setAccountType(type)} disabled={flow.busy}/><strong>{t(type === 'member' ? 'auth.role.member' : 'auth.role.community')}</strong><span className="sm">{t(type === 'member' ? 'auth.role.member.sub' : 'auth.role.community.sub')}</span></label>)}</fieldset>}
           {needsEmail && <label className="lbl">{t('auth.email')}<input className="in" name="email" type="email" autoComplete="email" value={flow.email} maxLength={254} placeholder={t('auth.emailPlaceholder')} onChange={e => flow.setEmail(e.target.value)} disabled={flow.busy} required/></label>}
           {needsPassword && !success && <label className="lbl">{newPassword ? t('auth.newPassword') : t('auth.password')}<span className="password"><input className="in" name="password" aria-label={newPassword ? t('auth.newPassword') : t('auth.password')} type={showPassword ? 'text' : 'password'} autoComplete={newPassword ? 'new-password' : 'current-password'} value={flow.password} maxLength={128} onChange={e => flow.setPassword(e.target.value)} disabled={flow.busy} required/><button type="button" aria-label={showPassword ? t('auth.hideAria') : t('auth.showAria')} onClick={() => setShowPassword(v => !v)}>{showPassword ? t('auth.hide') : t('auth.show')}</button></span>{newPassword && <span className="hint">{t('auth.passwordHint')}</span>}</label>}
           {newPassword && !success && <label className="lbl">{t('auth.confirm')}<input className="in" name="confirmation" aria-label={t('auth.confirm')} type="password" autoComplete="new-password" value={flow.confirmation} maxLength={128} onChange={e => flow.setConfirmation(e.target.value)} disabled={flow.busy} required/>{flow.confirmation && flow.password !== flow.confirmation && <span className="fe">{t('auth.mismatch')}</span>}</label>}

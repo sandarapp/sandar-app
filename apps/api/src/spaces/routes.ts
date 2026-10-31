@@ -5,7 +5,7 @@ import * as schema from '../../../../packages/contracts/src/spaces.js';
 import {ApiError} from '../core/errors.js';
 import {rateLimit} from '../core/rate-limit.js';
 import {memberRequest} from '../core/member-request.js';
-import {DevelopmentSafetyClassifier,type SafetyClassifier} from './safety.js';
+import {DevelopmentSafetyClassifier,type SafetyClassifier,type SafetyResult} from './safety.js';
 // English when the request asks for it; otherwise the Indonesian original.
 export const contentLocale=(req:FastifyRequest)=>/^en\b/i.test(String(req.headers['accept-language']??''))?'en':'id-ID';
 const fail=(code:string,status=403)=>new ApiError(status,code,'This action is not available.');
@@ -43,6 +43,11 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
   if(!s.permissions.read)throw fail('MEMBERSHIP_REQUIRED');
   if(!s.permissions[permission])throw fail(permission==='post'?'POSTING_DISABLED':'COMMENTING_DISABLED');
  }
+ // Self-harm language is never published; the client shows crisis resources instead.
+ function screen(result:SafetyResult){
+  if(result.reasons.includes('SELF_HARM_LANGUAGE'))throw new ApiError(422,'SELF_HARM_SUPPORT','Tulisan ini tidak dipublikasikan. Kalau kamu sedang dalam bahaya, hubungi 119 ext. 8 atau Healing119.id.');
+  if(['BLOCK','REQUIRE_EDIT'].includes(result.requiredAction))throw fail('CONTENT_REQUIRES_EDIT',422);
+ }
  const id=(req:FastifyRequest,name='id')=>schema.uuid.parse((req.params as Record<string,string>)[name]);
  async function post(tx:Transaction,userId:string,postId:string){
   const p=(await tx.query(`SELECT p.* FROM space_posts p WHERE p.id=$2 AND ${blockedSql}`,[userId,postId])).rows[0];
@@ -55,13 +60,15 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
   if(!posts.length)return [];
   const ids=posts.map(p=>p.id as string);
   const authors=[...new Set(posts.filter(p=>p.identity_mode==='PROFILE').map(p=>p.author_user_id as string))];
-  const [names,reactions,translations]=await Promise.all([
+  const [names,reactions,translations,comments]=await Promise.all([
    authors.length?tx.query('SELECT user_id,display_name FROM member_profiles WHERE user_id=ANY($1)',[authors]):Promise.resolve({rows:[]}),
    tx.query('SELECT post_id,type FROM space_reactions WHERE post_id=ANY($1) AND user_id=$2',[ids,userId]),
-   locale!=='id-ID'&&posts.some(p=>p.identity_mode==='ANNOUNCEMENT')?tx.query('SELECT post_id,body FROM space_post_translations WHERE post_id=ANY($1) AND locale=$2',[ids,locale]):Promise.resolve({rows:[]})
+   locale!=='id-ID'&&posts.some(p=>p.identity_mode==='ANNOUNCEMENT')?tx.query('SELECT post_id,body FROM space_post_translations WHERE post_id=ANY($1) AND locale=$2',[ids,locale]):Promise.resolve({rows:[]}),
+   tx.query(`SELECT post_id,count(*)::int AS n FROM space_comments p WHERE post_id=ANY($2) AND status='VISIBLE' AND ${blockedSql} GROUP BY post_id`,[userId,ids])
   ]);
+  const commentsOf=new Map(comments.rows.map((r:any)=>[r.post_id,r.n as number]));
   const nameOf=new Map(names.rows.map((r:any)=>[r.user_id,r.display_name])),bodyOf=new Map(translations.rows.map((r:any)=>[r.post_id,r.body]));
-  return posts.map(p=>({id:p.id,body:bodyOf.get(p.id)??p.body,identityMode:p.identity_mode,status:p.status==='PENDING_REVIEW'?'PENDING_REVIEW':'VISIBLE',authorName:p.identity_mode==='ANONYMOUS'?'Anonymous Member':p.identity_mode==='ANNOUNCEMENT'?'Sandar Team':nameOf.get(p.author_user_id)??'Member',createdAt:(p.created_at as Date).toISOString(),own:p.author_user_id===userId,canBlock:Boolean(p.author_user_id&&p.author_user_id!==userId),reactions:(['SUPPORT','RELATE','ENCOURAGEMENT'] as const).map(type=>({type,selected:reactions.rows.some((r:any)=>r.post_id===p.id&&r.type===type)}))}));
+  return posts.map(p=>({id:p.id,body:bodyOf.get(p.id)??p.body,identityMode:p.identity_mode,status:p.status==='PENDING_REVIEW'?'PENDING_REVIEW':'VISIBLE',authorName:p.identity_mode==='ANONYMOUS'?'Anonymous Member':p.identity_mode==='ANNOUNCEMENT'?'Sandar Team':nameOf.get(p.author_user_id)??'Member',createdAt:(p.created_at as Date).toISOString(),own:p.author_user_id===userId,canBlock:Boolean(p.author_user_id&&p.author_user_id!==userId),commentCount:commentsOf.get(p.id)??0,reactions:(['SUPPORT','RELATE','ENCOURAGEMENT'] as const).map(type=>({type,selected:reactions.rows.some((r:any)=>r.post_id===p.id&&r.type===type)}))}));
  }
  const projectPost=async(tx:Transaction,userId:string,p:Record<string,any>,locale='id-ID')=>(await projectPosts(tx,userId,[p],locale))[0]!;
  /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -100,7 +107,7 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
   const existing=(await tx.query('SELECT * FROM space_posts WHERE author_user_id=$1 AND request_id=$2',[userId,v.requestId])).rows[0];
   if(existing){if(existing.space_id!==s.id||existing.body!==v.body||existing.identity_mode!==v.identityMode)throw fail('DUPLICATE_REQUEST_CONFLICT',409);return {postId:existing.id,status:existing.status};}
   const result=await safety.classify(v.body);
-  if(['BLOCK','REQUIRE_EDIT'].includes(result.requiredAction))throw fail('CONTENT_REQUIRES_EDIT',422);
+  screen(result);
   const held=result.requiredAction==='ESCALATE'||result.requiresHumanReview;
   const postId=randomUUID();
   await tx.query('INSERT INTO space_posts(id,space_id,author_user_id,identity_mode,body,request_id,status) VALUES($1,$2,$3,$4,$5,$6,$7)',[postId,s.id,userId,v.identityMode,v.body,v.requestId,held?'PENDING_REVIEW':'VISIBLE']);
@@ -127,7 +134,7 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
   const v=schema.commentInput.parse(req.body),{p,s}=await post(tx,userId,id(req));requirePermission(s,'comment');
   const previous=(await tx.query('SELECT * FROM space_comments WHERE author_user_id=$1 AND request_id=$2',[userId,v.requestId])).rows[0];
   if(previous){if(previous.post_id!==p.id||previous.body!==v.body)throw fail('DUPLICATE_REQUEST_CONFLICT',409);return {commentId:previous.id,status:previous.status};}
-  const result=await safety.classify(v.body);if(['BLOCK','REQUIRE_EDIT'].includes(result.requiredAction))throw fail('CONTENT_REQUIRES_EDIT',422);
+  const result=await safety.classify(v.body);screen(result);
   const held=result.requiredAction==='ESCALATE'||result.requiresHumanReview,commentId=randomUUID();
   await tx.query('INSERT INTO space_comments(id,post_id,author_user_id,body,request_id,status) VALUES($1,$2,$3,$4,$5,$6)',[commentId,p.id,userId,v.body,v.requestId,held?'PENDING_REVIEW':'VISIBLE']);
   if(held)await tx.query('INSERT INTO space_safety_cases(id,space_id,comment_id,classification) VALUES($1,$2,$3,$4)',[randomUUID(),s.id,commentId,result.classification]);

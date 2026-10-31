@@ -5,6 +5,8 @@ import { discoveryTopics, type DiscoveryData, type DiscoveryResult } from '../..
 import { useLang } from '../i18n';
 import { call, codeOf, takeSearch } from './client';
 import { errorKey, label, spacePhoto } from './copy';
+import { communityFlow } from '../flags';
+import { Skeleton } from './ui';
 
 type Topic = typeof discoveryTopics[number];
 
@@ -53,9 +55,9 @@ export function Discover() {
         // Partner community pages open in a later release; their cards stay informational.
         return <li key={r.id}>{official ? <Link href={`/spaces/${r.id}`} className="sp">{body}</Link> : <div className="sp muted">{body}<span className="badge">{t('disc.soon')}</span></div>}</li>;
       })}</ul>
-      {loading && <p className="loading" role="status">{t('disc.searching')}</p>}
+      {loading && <Skeleton label={t('disc.searching')} variant="page"/>}
       {next !== null && !loading && <button className="btn2 fit" onClick={() => void search(next,q,topics)}>{t('disc.more')}</button>}
-      <p className="sm">{t('disc.note')}</p>
+      {communityFlow && <p className="sm">{t('disc.note')}</p>}
     </section>
   </div>;
 }

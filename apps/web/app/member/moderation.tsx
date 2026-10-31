@@ -4,6 +4,7 @@ import { moderationRules, type ModerationQueue } from '../../../../packages/cont
 import { useLang } from '../i18n';
 import { call, codeOf } from './client';
 import { errorKey, timeAgo } from './copy';
+import { Skeleton } from './ui';
 
 const ruleLabel = { RULE_1: 'rule.1', RULE_2: 'rule.2', RULE_3: 'rule.3', RULE_4: 'rule.4', RULE_5: 'rule.5', OTHER: 'mod.rule.OTHER' } as const;
 
@@ -29,7 +30,7 @@ export function Moderation() {
     decision === 'APPROVE' ? { decision } : { decision,rule: rules[postId] },decision === 'APPROVE' ? t('mod.approved') : t('mod.removed'));
 
   if (error === 'FORBIDDEN') return <div className="empty"><h1 className="h serif">{t('mod.title')}</h1><p className="p">{t('mod.notAllowed')}</p></div>;
-  if (!queue) return error ? <div className="empty"><p className="p">{t(errorKey(error))}</p><button className="btn" onClick={() => void load()}>{t('common.tryAgain')}</button></div> : <p className="loading" role="status">{t('common.loading')}</p>;
+  if (!queue) return error ? <div className="empty"><p className="p">{t(errorKey(error))}</p><button className="btn" onClick={() => void load()}>{t('common.tryAgain')}</button></div> : <Skeleton label={t('loading.page')} variant="page"/>;
 
   const ruleSelect = (id: string) => <label className="lbl compact">{t('mod.rule')}<select className="in" value={rules[id] ?? ''} onChange={e => setRules(r => ({ ...r,[id]: e.target.value }))}>
     <option value="">{t('mod.rule.choose')}</option>{moderationRules.map(rule => <option key={rule} value={rule}>{t(ruleLabel[rule])}</option>)}

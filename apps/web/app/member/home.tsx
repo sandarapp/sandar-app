@@ -9,6 +9,8 @@ import { useLang } from '../i18n';
 import { call, codeOf } from './client';
 import { errorKey, label, spacePhoto } from './copy';
 import { Composer, Post } from './space';
+import { Skeleton } from './ui';
+import { communityFlow } from '../flags';
 
 type FeedItem = { post: SpacePost; space: Space };
 
@@ -48,7 +50,7 @@ export function Home() {
   },[load]);
 
   if (error) return <div className="empty"><h1 className="h serif">{t('home.loadFail')}</h1><p className="p">{t(errorKey(error))}</p><button className="btn" onClick={() => void load()}>{t('common.tryAgain')}</button></div>;
-  if (!home) return <p className="loading" role="status">{t('common.loading')}</p>;
+  if (!home) return <Skeleton label={t('loading.home')}/>;
 
   const joined = spaces.filter(s => s.membership === 'JOINED');
   const others = spaces.filter(s => s.membership !== 'JOINED' && s.permissions.join);
@@ -82,9 +84,9 @@ export function Home() {
           : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.home')}</p>}
         <section className="stack" aria-label={t('home.feed')}>
           <h2 className="kk">{t('home.feed')}</h2>
-          {feed === null ? <p className="loading" role="status">{t('common.loading')}</p>
+          {feed === null ? <Skeleton label={t('loading.home')} variant="page"/>
             : feed.length === 0 ? <div className="dashed"><p className="sm">{t('home.feedEmpty')}</p></div>
-            : <ol className="feed">{feed.map(item => <Post key={item.post.id} post={item.post} space={{ id: item.space.id,name: item.space.name }} onChange={replace} onGone={remove} onNotice={setNotice} onError={setFeedError}/>)}</ol>}
+            : <ol className="feed">{feed.map(item => <Post key={item.post.id} post={item.post} space={{ id: item.space.id,name: item.space.name }} canReply={item.space.permissions.comment} onChange={replace} onGone={remove} onNotice={setNotice} onError={setFeedError}/>)}</ol>}
         </section>
       </>}
     </div>
@@ -98,10 +100,10 @@ export function Home() {
         <h2 className="kk">{t('home.otherSpaces')}</h2>
         <ul className="mini-list">{others.map(s => <MiniSpace key={s.id} space={s} note={reason(s)}/>)}</ul>
       </section>}
-      <section className="stack-sm">
+      {communityFlow && <section className="stack-sm">
         <div className="row-between"><h2 className="kk">{t('home.verified')}</h2><Link href="/discover" className="sm-link">{t('home.seeAll')}</Link></div>
         <div className="dashed"><strong className="serif">{t('home.noCommunities')}</strong><p className="sm">{t('home.noCommunities.p')}</p></div>
-      </section>
+      </section>}
       <section className="side-card">
         <h2 className="q">{t('shell.boundaries')}</h2>
         <p className="sm">{t('shell.boundaries.p')}</p>
