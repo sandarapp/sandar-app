@@ -17,7 +17,7 @@ export function SpacePage({ id }: { id: string }) {
   const loadPosts = useCallback(async (s: Space) => {
     if (!s.permissions.read) return setPosts(null);
     setPosts(await call<SpacePost[]>(`/spaces/${s.id}/posts`));
-    void call('/home/context',{ method: 'POST',body: { spaceId: s.id } }).catch(() => {});
+    if (s.membership === 'JOINED') void call('/home/context',{ method: 'POST',body: { spaceId: s.id } }).catch(() => {});
   },[]);
   const load = useCallback(async () => {
     setError('');
@@ -38,7 +38,7 @@ export function SpacePage({ id }: { id: string }) {
   const leave = () => act(async () => {
     if (!window.confirm(t('space.leaveConfirm'))) return;
     const s = await call<Space>(`/spaces/${id}/leave`,{ method: 'POST',body: {} });
-    setSpace(s);setPosts(null);setAgree(false);
+    setSpace(s);setAgree(false);await loadPosts(s);
   });
   const replace = (post: SpacePost) => setPosts(list => list?.map(p => p.id === post.id ? post : p) ?? null);
   const remove = (postId: string) => setPosts(list => list?.filter(p => p.id !== postId) ?? null);
@@ -64,7 +64,7 @@ export function SpacePage({ id }: { id: string }) {
       {error && <p className="alert a-err" role="alert">{t(errorKey(error))}</p>}
       {notice && <p className="alert a-ok" role="status">{notice}</p>}
 
-      {!joined ? <section className="panel stack">
+      {!joined && <section className="panel stack">
         <h2 className="h3 serif">{t('space.rules')}</h2>
         {rules}
         {space.status !== 'ACTIVE' || !space.permissions.join
@@ -73,15 +73,14 @@ export function SpacePage({ id }: { id: string }) {
             <label className="check"><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)}/><span>{t('space.agree')}</span></label>
             <button className="btn fit" onClick={() => void join()} disabled={!agree || busy}>{busy ? t('common.working') : t('space.join')}</button>
           </>}
-      </section> : <>
-        {space.permissions.post ? <Composer spaces={[space]} onSent={async () => { setNotice(t('compose.sent'));await loadPosts(space); }}/> : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.space')}</p>}
-        <section aria-label={t('space.posts')}>
-          {posts === null ? <Skeleton label={t('space.loadingPosts')} variant="page"/>
-            : posts.length === 0 ? <div className="dashed"><strong className="serif">{t('space.noPosts')}</strong><p className="sm">{t('space.noPosts.p')}</p></div>
-            : <ol className="feed">{posts.map(p => <Post key={p.id} post={p} canReply={space.permissions.comment} onChange={replace} onGone={remove} onNotice={setNotice} onError={setError}/>)}</ol>}
-        </section>
-        <button className="link-button" onClick={() => void leave()} disabled={busy}>{t('space.leave')}</button>
-      </>}
+      </section>}
+      {joined && (space.permissions.post ? <Composer spaces={[space]} onSent={async () => { setNotice(t('compose.sent'));await loadPosts(space); }}/> : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.space')}</p>)}
+      {space.permissions.read && <section aria-label={t('space.posts')}>
+        {posts === null ? <Skeleton label={t('space.loadingPosts')} variant="page"/>
+          : posts.length === 0 ? <div className="dashed"><strong className="serif">{t('space.noPosts')}</strong><p className="sm">{t('space.noPosts.p')}</p></div>
+          : <ol className="feed">{posts.map(p => <Post key={p.id} post={p} canReply={space.permissions.comment} onChange={replace} onGone={remove} onNotice={setNotice} onError={setError}/>)}</ol>}
+      </section>}
+      {joined && <button className="link-button" onClick={() => void leave()} disabled={busy}>{t('space.leave')}</button>}
     </div>
     <aside className="side-card stack">
       <h2 className="q">{t('space.about')}</h2>
@@ -98,7 +97,7 @@ export function useDisplayName() {
   return name;
 }
 
-export function Post({ post,space,canReply,onChange,onGone,onNotice,onError }: { post: SpacePost; space?: { id: string; name: string }; canReply: boolean; onChange: (p: SpacePost) => void; onGone: (id: string) => void; onNotice: (text: string) => void; onError: (code: string) => void }) {
+export function Post({ post,space,canReply,joinToReply,onChange,onGone,onNotice,onError }: { post: SpacePost; space?: { id: string; name: string }; canReply: boolean; joinToReply?: boolean; onChange: (p: SpacePost) => void; onGone: (id: string) => void; onNotice: (text: string) => void; onError: (code: string) => void }) {
   const { lang,t } = useLang();
   const [busy,setBusy] = useState<string | null>(null),[panel,setPanel] = useState(false),[reason,setReason] = useState(''),[thread,setThread] = useState(false);
   useEffect(() => {
@@ -144,10 +143,11 @@ export function Post({ post,space,canReply,onChange,onGone,onNotice,onError }: {
           const selected = post.reactions.find(x => x.type === type)?.selected ?? false;
           return <button key={type} type="button" className={selected ? 'ac on' : 'ac'} aria-pressed={selected} disabled={busy !== null} onClick={() => void toggle(type,selected)}>{type === 'RELATE' ? '♡ ' : ''}{t(`react.${type}`)}</button>;
         })}
-        {(canReply || post.commentCount > 0) && <button type="button" className={thread ? 'ac on' : 'ac'} aria-expanded={thread} onClick={() => setThread(v => !v)}>{post.commentCount === 1 ? t('reply.one') : post.commentCount > 1 ? t('reply.count',{ n: post.commentCount }) : t('reply.open')}</button>}
+        {(canReply || joinToReply || post.commentCount > 0) && <button type="button" className={thread ? 'ac on' : 'ac'} aria-expanded={thread} onClick={() => setThread(v => !v)}>{post.commentCount === 1 ? t('reply.one') : post.commentCount > 1 ? t('reply.count',{ n: post.commentCount }) : t('reply.open')}</button>}
         {!post.own && !announcement && <button type="button" className="ac quiet" aria-expanded={panel} onClick={() => setPanel(true)}>{t('report.open')}</button>}
       </div>}
       {thread && <Replies post={post} canReply={canReply} onCount={n => onChange({ ...post,commentCount: n })} onNotice={onNotice}/>}
+      {thread && joinToReply && space && <p className="sm"><Link href={`/spaces/${space.id}`} className="sm-link">{t('reply.joinFirst',{ space: space.name })}</Link></p>}
     </div>
     {panel && <div className="scrim side" onClick={() => setPanel(false)}>
       <div className="drawer" role="dialog" aria-modal="true" aria-labelledby={`report-${post.id}`} onClick={event => event.stopPropagation()}>

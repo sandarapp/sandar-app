@@ -14,8 +14,8 @@ import { communityFlow } from '../flags';
 
 type FeedItem = { post: SpacePost; space: Space };
 
-// Home: post and read in the middle, spaces on the side. A member who hasn't
-// joined anything yet sees the official spaces first.
+// Home: post and read in the middle, spaces on the side. Every member reads every
+// space here; one who hasn't joined anything yet sees the official spaces first.
 export function Home() {
   const { lang,t } = useLang();
   const [home,setHome] = useState<HomeData | null>(null),[spaces,setSpaces] = useState<Space[]>([]),[error,setError] = useState('');
@@ -23,9 +23,9 @@ export function Home() {
   const [needs,setNeeds] = useState<string[]>([]),[topics,setTopics] = useState<Record<string,string[]>>({});
   const visit = useRef(false);
 
-  // Posts from every joined space, newest first. Four official spaces at most, so one request each.
+  // Posts from every readable space, newest first. Four official spaces at most, so one request each.
   const loadFeed = useCallback(async (list: Space[]) => {
-    const readable = list.filter(s => s.membership === 'JOINED' && s.permissions.read);
+    const readable = list.filter(s => s.permissions.read);
     const pages = await Promise.all(readable.map(s => call<SpacePost[]>(`/spaces/${s.id}/posts`).then(posts => posts.map(post => ({ post,space: s }))).catch(() => [])));
     setFeed(pages.flat().sort((a,b) => b.post.createdAt.localeCompare(a.post.createdAt)).slice(0,40));
   },[]);
@@ -81,16 +81,14 @@ export function Home() {
         <p className="p">{t('home.startJoin')}</p>
         <h2 className="kk">{t('home.official')}</h2>
         <ul className="grid">{others.map(s => <SpaceCard key={s.id} space={s} note={reason(s)}/>)}</ul>
-      </section> : <>
-        {postable.length > 0 ? <Composer spaces={postable} onSent={async () => { setNotice(t('compose.sent'));await loadFeed(spaces); }}/>
-          : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.home')}</p>}
-        <section className="stack" aria-label={t('home.feed')}>
-          <h2 className="kk">{t('home.feed')}</h2>
-          {feed === null ? <Skeleton label={t('loading.home')} variant="page"/>
-            : feed.length === 0 ? <div className="dashed"><p className="sm">{t('home.feedEmpty')}</p></div>
-            : <ol className="feed">{feed.map(item => <Post key={item.post.id} post={item.post} space={{ id: item.space.id,name: item.space.name }} canReply={item.space.permissions.comment} onChange={replace} onGone={remove} onNotice={setNotice} onError={setFeedError}/>)}</ol>}
-        </section>
-      </>}
+      </section> : postable.length > 0 ? <Composer spaces={postable} onSent={async () => { setNotice(t('compose.sent'));await loadFeed(spaces); }}/>
+        : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.home')}</p>}
+      <section className="stack" aria-label={t('home.feed')}>
+        <h2 className="kk">{t('home.feed')}</h2>
+        {feed === null ? <Skeleton label={t('loading.home')} variant="page"/>
+          : feed.length === 0 ? <div className="dashed"><p className="sm">{t('home.feedEmpty')}</p></div>
+          : <ol className="feed">{feed.map(item => <Post key={item.post.id} post={item.post} space={{ id: item.space.id,name: item.space.name }} canReply={item.space.permissions.comment} joinToReply={item.space.membership !== 'JOINED' && item.space.permissions.join} onChange={replace} onGone={remove} onNotice={setNotice} onError={setFeedError}/>)}</ol>}
+      </section>
     </div>
 
     <aside className="home-side">
