@@ -6,7 +6,7 @@ import { digest } from '../auth/crypto.js';
 import type { EmailMessage, EmailProvider } from './email.js';
 
 const testKey = randomBytes(32).toString('hex');
-const messageSchema = z.object({ to: z.string().email(), template: z.enum(['VERIFY_EMAIL','RESET_PASSWORD','SECURITY_ALERT','SPACE_REVIEWED']), token: z.string().optional() });
+const messageSchema = z.object({ to: z.string().email(), template: z.enum(['VERIFY_EMAIL','RESET_PASSWORD','SECURITY_ALERT','SPACE_REVIEWED','OPS_CODE']), token: z.string().optional(), code: z.string().regex(/^\d{6}$/).optional() });
 export class EmailOutbox {
   private box: SecretBox;
   constructor(private db: Database, private provider: EmailProvider, key: string | undefined, private onFailure = () => {}) {
@@ -16,7 +16,7 @@ export class EmailOutbox {
   async enqueue(tx: Transaction, message: EmailMessage) {
     const id = randomUUID();
     await tx.query(`INSERT INTO email_outbox(id,payload_encrypted,token_hash,expires_at)
-      VALUES($1,$2,$3,now()+$4*interval '1 second')`, [id,this.box.seal(message,`email:${id}`),message.token ? digest(message.token) : null,message.template === 'RESET_PASSWORD' ? 1800 : 86400]);
+      VALUES($1,$2,$3,now()+$4*interval '1 second')`, [id,this.box.seal(message,`email:${id}`),message.token ? digest(message.token) : null,message.template === 'RESET_PASSWORD' ? 1800 : message.template === 'OPS_CODE' ? 600 : 86400]);
   }
   async flush(limit = 20) {
     for (let n = 0; n < limit; n++) {

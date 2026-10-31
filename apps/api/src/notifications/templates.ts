@@ -1,5 +1,10 @@
 import type { EmailMessage } from './email.js';
 export const escapeHtml = (text: string) => text.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+function codeOf(message: EmailMessage) {
+  if (!message.code || !/^\d{6}$/.test(message.code)) throw new Error('A six-digit code is required');
+  return message.code;
+}
+
 export function renderEmail(message: EmailMessage, baseUrl: string) {
   const url = new URL(baseUrl);
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost','127.0.0.1'].includes(url.hostname))) throw new Error('Email base URL must use HTTPS or loopback development HTTP');
@@ -7,10 +12,10 @@ export function renderEmail(message: EmailMessage, baseUrl: string) {
   // Loopback HTTP is only allowed in development; mark those emails so they are never mistaken for real ones.
   const development = url.protocol === 'http:';
   const verification = message.template === 'VERIFY_EMAIL';
-  const title = verification ? 'Verifikasi email Sandar Anda' : message.template === 'RESET_PASSWORD' ? 'Atur ulang kata sandi Sandar' : message.template === 'SPACE_REVIEWED' ? 'Ruangmu di Sandar sudah ditinjau' : 'Kata sandi Sandar diperbarui';
-  const copy = verification ? 'Konfirmasikan alamat email Anda untuk melanjutkan. Tautan berlaku selama 24 jam.' : message.template === 'RESET_PASSWORD' ? 'Anda meminta pengaturan ulang kata sandi. Tautan berlaku selama 30 menit.' : message.template === 'SPACE_REVIEWED' ? 'Tim Sandar sudah meninjau ruang yang kamu ajukan. Masuk ke Sandar untuk melihat hasilnya di Beranda.' : 'Kata sandi Anda telah diperbarui dan semua sesi sebelumnya telah diakhiri. Jika bukan Anda, atur ulang kata sandi melalui aplikasi.';
+  const title = verification ? 'Verifikasi email Sandar Anda' : message.template === 'RESET_PASSWORD' ? 'Atur ulang kata sandi Sandar' : message.template === 'SPACE_REVIEWED' ? 'Ruangmu di Sandar sudah ditinjau' : message.template === 'OPS_CODE' ? 'Kode masuk Sandar Ops' : 'Kata sandi Sandar diperbarui';
+  const copy = verification ? 'Konfirmasikan alamat email Anda untuk melanjutkan. Tautan berlaku selama 24 jam.' : message.template === 'RESET_PASSWORD' ? 'Anda meminta pengaturan ulang kata sandi. Tautan berlaku selama 30 menit.' : message.template === 'OPS_CODE' ? `Kode Anda: ${codeOf(message)}. Berlaku 10 menit. Jangan bagikan kode ini kepada siapa pun, termasuk staf Sandar.` : message.template === 'SPACE_REVIEWED' ? 'Tim Sandar sudah meninjau ruang yang kamu ajukan. Masuk ke Sandar untuk melihat hasilnya di Beranda.' : 'Kata sandi Anda telah diperbarui dan semua sesi sebelumnya telah diakhiri. Jika bukan Anda, atur ulang kata sandi melalui aplikasi.';
   let link: string | null = null;
-  if (message.template !== 'SECURITY_ALERT' && message.template !== 'SPACE_REVIEWED') {
+  if (message.template === 'VERIFY_EMAIL' || message.template === 'RESET_PASSWORD') {
     if (!message.token || !/^[A-Za-z0-9_-]{43}$/.test(message.token)) throw new Error('A valid action token is required');
     url.pathname = verification ? '/verify-email' : '/reset-password';
     // Fragments are not transmitted in HTTP requests or Referer headers.

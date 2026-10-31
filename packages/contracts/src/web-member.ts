@@ -45,10 +45,9 @@ const memberRoutes: [string, RegExp][] = [
   ['POST', /^settings\/blocks\/[0-9a-f]{32}\/unblock$/],
   ['GET', /^moderation\/(me|queue)$/],
   ['GET', /^ops\/(me|dashboard|reports|feedback|staff|audit)$/],
-  ['POST', /^ops\/(2fa\/setup|2fa\/verify|reports\/decision|members\/lookup|staff\/grant|staff\/revoke)$/],
+  ['POST', /^ops\/(2fa\/send|2fa\/verify|reports\/decision|members\/lookup|staff\/grant|staff\/revoke)$/],
   ['POST', new RegExp(`^ops/members/${id}/(suspend|restore)$`)],
   ['POST', new RegExp(`^ops/feedback/${id}/read$`)],
-  ['POST', new RegExp(`^ops/staff/${id}/reset-2fa$`)],
   ['POST', new RegExp(`^moderation/posts/${id}/decision$`)],
   ['POST', new RegExp(`^moderation/reports/${id}/dismiss$`)],
   ['POST', new RegExp(`^moderation/spaces/${id}/decision$`)]

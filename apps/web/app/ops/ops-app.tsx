@@ -35,7 +35,7 @@ export function OpsApp({ appUrl }: { appUrl: string }) {
   if (state === 'loading') return <main className="bare"><Skeleton label={t('loading.page')}/></main>;
   if (state === 'denied') return <main className="ops-gate"><div className="ops-card stack"><Wordmark/><h1 className="ops-h">{t('ops.denied.t')}</h1><p className="sm">{t('ops.denied.p')}</p><a className="ops-btn2 fit" href={appUrl}>{t('ops.backApp')}</a><button type="button" className="ops-btn2 fit" onClick={() => void signOut()}>{t('common.logout')}</button></div></main>;
   if (state === 'failed' || !me) return <main className="ops-gate"><div className="ops-card stack"><p className="p">{t('shell.loadFail')}</p><button className="ops-btn fit" onClick={() => void load()}>{t('common.tryAgain')}</button></div></main>;
-  if (me.twoFactor !== 'OK') return <TwoFactor setup={me.twoFactor === 'SETUP'} appUrl={appUrl} onDone={() => void load()}/>;
+  if (me.twoFactor !== 'OK') return <TwoFactor email={me.email} appUrl={appUrl} onDone={() => void load()}/>;
   const allowed = (s: Section) => access[s].some(role => me.roles.includes(role));
   const expired = () => void load();
   return <div className="ops">
@@ -64,12 +64,16 @@ export function OpsApp({ appUrl }: { appUrl: string }) {
   </div>;
 }
 
-function TwoFactor({ setup,appUrl,onDone }: { setup: boolean; appUrl: string; onDone: () => void }) {
+// The code is sent only when asked for, so reloading this page can't replace one on its way.
+function TwoFactor({ email,appUrl,onDone }: { email: string; appUrl: string; onDone: () => void }) {
   const { t } = useLang();
-  const [secret,setSecret] = useState<{ secret: string; uri: string } | null>(null),[code,setCode] = useState(''),[error,setError] = useState(''),[busy,setBusy] = useState(false);
-  useEffect(() => {
-    if (setup) call<{ secret: string; uri: string }>('/ops/2fa/setup',{ method: 'POST',body: {} }).then(setSecret).catch(e => setError(codeOf(e)));
-  },[setup]);
+  const [sent,setSent] = useState(false),[code,setCode] = useState(''),[error,setError] = useState(''),[busy,setBusy] = useState(false);
+  const send = async () => {
+    if (busy) return;
+    setBusy(true);setError('');setCode('');
+    try { await call('/ops/2fa/send',{ method: 'POST',body: {} });setSent(true); }
+    catch (e) { setError(codeOf(e)); } finally { setBusy(false); }
+  };
   const verify = async (event: React.FormEvent) => {
     event.preventDefault();
     if (busy) return;
@@ -79,15 +83,12 @@ function TwoFactor({ setup,appUrl,onDone }: { setup: boolean; appUrl: string; on
   };
   return <main className="ops-gate"><form className="ops-card stack" onSubmit={verify}>
     <span className="ops-brand dark"><Wordmark/><b>OPS</b></span>
-    <h1 className="ops-h">{setup ? t('ops.2fa.setup') : t('ops.2fa.title')}</h1>
-    {setup ? <>
-      <p className="sm">{t('ops.2fa.setup.p')}</p>
-      {secret && <code className="ops-secret">{secret.secret.match(/.{1,4}/g)!.join(' ')}</code>}
-      {secret && <a className="sm-link" href={secret.uri}>{t('ops.2fa.open')}</a>}
-    </> : <p className="sm">{t('ops.2fa.p')}</p>}
-    <label className="lbl">{t('ops.2fa.code')}<input className="in" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g,''))}/></label>
+    <h1 className="ops-h">{t('ops.code.title')}</h1>
+    <p className="sm">{sent ? t('ops.code.sent',{ email }) : t('ops.code.p',{ email })}</p>
+    {sent && <label className="lbl">{t('ops.code.label')}<input className="in" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g,''))}/></label>}
     {error && <p className="alert a-err" role="alert">{t(errorKey(error))}</p>}
-    <button className="ops-btn" type="submit" disabled={busy || code.length !== 6}>{t('ops.2fa.verify')}</button>
+    {sent ? <><button className="ops-btn" type="submit" disabled={busy || code.length !== 6}>{t('ops.code.verify')}</button><button type="button" className="ops-btn2" disabled={busy} onClick={() => void send()}>{t('ops.code.again')}</button></>
+      : <button type="button" className="ops-btn" disabled={busy} onClick={() => void send()}>{busy ? t('common.working') : t('ops.code.send')}</button>}
     <a className="sm-link" href={appUrl}>{t('ops.backApp')}</a>
   </form></main>;
 }
@@ -258,12 +259,11 @@ function Staff({ onExpired }: { onExpired: () => void }) {
   };
   return <div className="stack">
     {messages}
-    <div className="ops-panel table-wrap"><table className="ops-table"><thead><tr><th>{t('ops.name')}</th><th>{t('ops.roles')}</th><th>2FA</th><th>{t('ops.until')}</th><th/></tr></thead><tbody>{data.map(s => <tr key={s.userId}>
+    <div className="ops-panel table-wrap"><table className="ops-table"><thead><tr><th>{t('ops.name')}</th><th>{t('ops.roles')}</th><th>{t('ops.until')}</th><th/></tr></thead><tbody>{data.map(s => <tr key={s.userId}>
       <td>{s.name}<span className="sm block">{s.email}</span></td>
       <td>{s.grants.map(g => <button key={g.role} type="button" className="ops-chip LOW tag-btn" title={t('ops.revokeRole')} onClick={() => { const r = asked();if (r) void act('/ops/staff/revoke',{ userId: s.userId,role: g.role,reason: r },t('ops.saved')); }}>{t(`ops.role.${g.role}`)} ×</button>)}</td>
-      <td>{s.twoFactor ? t('ops.on') : t('ops.pending')}</td>
       <td>{s.grants.map(g => g.expiresAt ? new Date(g.expiresAt).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID') : '-').join(', ')}</td>
-      <td className="chips"><button type="button" className="ops-btn2" onClick={() => { const r = asked();if (r) void act(`/ops/staff/${s.userId}/reset-2fa`,{ reason: r },t('ops.saved')); }}>{t('ops.reset2fa')}</button><button type="button" className="ops-danger" onClick={() => { const r = asked();if (r) void act('/ops/staff/revoke',{ userId: s.userId,reason: r },t('ops.saved')); }}>{t('ops.removeAll')}</button></td>
+      <td className="chips"><button type="button" className="ops-danger" onClick={() => { const r = asked();if (r) void act('/ops/staff/revoke',{ userId: s.userId,reason: r },t('ops.saved')); }}>{t('ops.removeAll')}</button></td>
     </tr>)}</tbody></table></div>
     <form className="ops-panel stack-sm ops-narrow" onSubmit={grant}>
       <h2 className="q">{t('ops.grant')}</h2><p className="sm">{t('ops.grant.p')}</p>

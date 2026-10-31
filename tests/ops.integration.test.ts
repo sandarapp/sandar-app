@@ -4,12 +4,12 @@ import {Pool} from '../packages/database/src/database.js';
 import {migrate} from '../packages/database/src/migrate.js';
 import {buildApp} from '../apps/api/src/app.js';
 import {digest,newToken} from '../apps/api/src/auth/crypto.js';
-import {codeAt,currentStep} from '../apps/api/src/ops/totp.js';
 import {hostAllows} from '../packages/contracts/src/web-member.js';
 const url=process.env.TEST_DATABASE_URL;
 if(!url||new URL(url).hostname!=='localhost'||new URL(url).pathname!=='/sandar_ops_test')throw new Error('Use isolated localhost/sandar_ops_test');
 const db=new Pool({connectionString:url});
-const app=await buildApp({db,email:{send:async()=>{}},encryptionKey:'a'.repeat(64)});
+const mail:{to:string;template:string;code?:string}[]=[];
+const app=await buildApp({db,email:{send:async m=>{mail.push(m);}},encryptionKey:'a'.repeat(64)});
 type Who={id:string;key:string};
 let boss:Who,mod:Who,admin:Who,member1:Who,member2:Who,spaceId:string;
 const call=(method:'GET'|'POST',path:string,who:{key:string},body?:unknown)=>app.inject({method,url:'/v1'+path,headers:{authorization:'Bearer '+who.key},...(body===undefined?{}:{payload:body as Record<string,unknown>})});
@@ -25,7 +25,7 @@ const join=(who:Who)=>call('POST',`/spaces/${spaceId}/join`,who,{accepted:true,g
 const post=async(who:Who,identityMode='PROFILE')=>(await call('POST',`/spaces/${spaceId}/posts`,who,{requestId:randomUUID(),identityMode,body:'Reported words here.'})).json().data.postId as string;
 beforeAll(()=>migrate(db));
 beforeEach(async()=>{
- await db.query('TRUNCATE ops_audit,users,support_spaces,rate_limits,staff_2fa CASCADE').catch(async()=>{await db.query('ALTER TABLE ops_audit DISABLE TRIGGER USER');await db.query('TRUNCATE ops_audit,users,support_spaces,rate_limits,staff_2fa CASCADE');await db.query('ALTER TABLE ops_audit ENABLE TRIGGER USER');});
+ await db.query('TRUNCATE ops_audit,users,support_spaces,rate_limits,email_outbox,ops_email_codes CASCADE').catch(async()=>{await db.query('ALTER TABLE ops_audit DISABLE TRIGGER USER');await db.query('TRUNCATE ops_audit,users,support_spaces,rate_limits,email_outbox,ops_email_codes CASCADE');await db.query('ALTER TABLE ops_audit ENABLE TRIGGER USER');});
  boss=await person('boss@example.invalid','Boss','SUPER_ADMIN');mod=await person('mod@example.invalid','Mod','MODERATOR');admin=await person('admin@example.invalid','Admin','ADMIN');
  member1=await person('member1@example.invalid','Rani');member2=await person('member2@example.invalid','Budi');spaceId=randomUUID();
  await db.query("INSERT INTO support_spaces(id,kind,name,purpose,audience,topic,operator_name,status,guidelines_version,posting_enabled,commenting_enabled) VALUES($1,'OFFICIAL_SANDAR','Work Stress','Peer support','Adults','Work','Sandar','ACTIVE','test-v1',true,true)",[spaceId]);
@@ -45,27 +45,41 @@ describe('Ops subdomain',()=>{
  });
 });
 describe('Second factor',()=>{
- it('enrols with a code, and blocks staff work until then',async()=>{
-  await db.query('UPDATE sessions SET ops_verified_at=NULL,ops_seen_at=NULL WHERE user_id=$1',[mod.id]);
-  expect((await call('GET','/ops/me',mod)).json().data.twoFactor).toBe('SETUP');
+ const codeFor=()=>mail.at(-1)!.code!;
+ const lock=()=>db.query('UPDATE sessions SET ops_verified_at=NULL,ops_seen_at=NULL WHERE user_id=$1',[mod.id]);
+ it('emails a one-time code, and blocks staff work until it is used',async()=>{
+  await lock();
+  expect((await call('GET','/ops/me',mod)).json().data).toMatchObject({twoFactor:'REQUIRED',email:'m•••@example.invalid'});
   expect((await call('GET','/ops/reports',mod)).json().error.code).toBe('OPS_2FA_REQUIRED');
   expect((await call('GET','/moderation/queue',mod)).json().error.code).toBe('OPS_2FA_REQUIRED');
-  const {secret}=(await call('POST','/ops/2fa/setup',mod,{})).json().data;
-  expect((await db.query('SELECT secret_sealed FROM staff_2fa')).rows[0].secret_sealed).not.toContain(secret);
-  expect((await call('POST','/ops/2fa/verify',mod,{code:'000000'})).json().error.code).toBe('OPS_2FA_WRONG');
-  const code=codeAt(secret,currentStep());
+  const sent=await call('POST','/ops/2fa/send',mod,{});
+  expect(sent.body).not.toContain(codeFor());
+  expect(mail.at(-1)).toMatchObject({to:'mod@example.invalid',template:'OPS_CODE'});
+  const code=codeFor();
+  expect((await db.query('SELECT code_hash FROM ops_email_codes')).rows[0].code_hash).not.toContain(code);
+  expect((await call('POST','/ops/2fa/verify',mod,{code:code==='000000'?'000001':'000000'})).json().error.code).toBe('OPS_CODE_WRONG');
+  expect((await call('GET','/ops/reports',mod)).statusCode).toBe(403);
   expect((await call('POST','/ops/2fa/verify',mod,{code})).statusCode).toBe(200);
   expect((await call('GET','/ops/me',mod)).json().data.twoFactor).toBe('OK');
   expect((await call('GET','/ops/reports',mod)).statusCode).toBe(200);
-  expect((await call('POST','/ops/2fa/setup',mod,{})).statusCode).toBe(409);
-  // The same code can't be replayed on a later sign-in.
-  await db.query('UPDATE sessions SET ops_verified_at=NULL WHERE user_id=$1',[mod.id]);
-  expect((await call('POST','/ops/2fa/verify',mod,{code})).json().error.code).toBe('OPS_2FA_WRONG');
+  await lock();
+  expect((await call('POST','/ops/2fa/verify',mod,{code})).json().error.code).toBe('OPS_CODE_WRONG');
  });
- it('locks after five wrong codes and expires after idle time',async()=>{
-  await call('POST','/ops/2fa/setup',admin,{}).catch(()=>{});
+ it('rejects an expired or replaced code, and another account\'s code',async()=>{
+  await lock();
+  await call('POST','/ops/2fa/send',mod,{});const first=codeFor();
+  await call('POST','/ops/2fa/send',mod,{});const second=codeFor();
+  if(first!==second)expect((await call('POST','/ops/2fa/verify',mod,{code:first})).statusCode).toBe(400);
+  expect((await call('POST','/ops/2fa/verify',admin,{code:second})).statusCode).toBe(400);
+  await db.query("UPDATE ops_email_codes SET expires_at=now()-interval '1 second'");
+  expect((await call('POST','/ops/2fa/verify',mod,{code:second})).statusCode).toBe(400);
+ });
+ it('limits sends and guesses, and expires after idle time',async()=>{
   for(let i=0;i<5;i++)await call('POST','/ops/2fa/verify',admin,{code:'000000'});
   expect((await call('POST','/ops/2fa/verify',admin,{code:'000000'})).statusCode).toBe(429);
+  for(let i=0;i<5;i++)await call('POST','/ops/2fa/send',boss,{});
+  expect((await call('POST','/ops/2fa/send',boss,{})).statusCode).toBe(429);
+  expect((await call('POST','/ops/2fa/send',member1,{})).statusCode).toBe(403);
   await db.query("UPDATE sessions SET ops_seen_at=now()-interval '31 minutes' WHERE user_id=$1",[mod.id]);
   expect((await call('GET','/ops/reports',mod)).json().error.code).toBe('OPS_2FA_REQUIRED');
  });
@@ -154,9 +168,7 @@ describe('Roles and audit',()=>{
   expect((await call('POST','/ops/staff/revoke',other,{userId:other.id,reason:'Remove myself.'})).statusCode).toBe(409);
   expect((await call('GET','/ops/staff',boss)).statusCode).toBe(403);
  });
- it('removes all access at once and resets a lost authenticator',async()=>{
-  expect((await call('POST',`/ops/staff/${mod.id}/reset-2fa`,boss,{reason:'Lost phone, identity checked.'})).statusCode).toBe(200);
-  expect((await call('GET','/ops/reports',mod)).json().error.code).toBe('OPS_2FA_REQUIRED');
+ it('removes all access at once',async()=>{
   expect((await call('POST','/ops/staff/revoke',boss,{userId:mod.id,reason:'Leaving staff.'})).statusCode).toBe(200);
   expect((await call('GET','/ops/me',mod)).statusCode).toBe(403);
  });
