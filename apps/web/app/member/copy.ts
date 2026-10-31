@@ -7,7 +7,7 @@ const taxonomy: Record<Lang, Record<string, string>> = {
     GRIEF_LOSS: 'Duka dan kehilangan', RELATIONSHIPS: 'Hubungan', PARENTING: 'Pengasuhan', LIFE_CHANGES: 'Perubahan hidup',
     RECOVERY: 'Pemulihan', WORK_PRESSURE: 'Tekanan kerja', GENERAL_SUPPORT: 'Dukungan umum', OTHER: 'Lainnya',
     PREFER_NOT_TO_SAY: 'Nggak mau jawab dulu',
-    FIND_COMMUNITIES: 'Cari komunitas', READ_QUIETLY: 'Baca-baca dulu', SHARE_EXPERIENCES: 'Berbagi cerita',
+    FIND_COMMUNITIES: 'Cari ruang yang cocok', READ_QUIETLY: 'Baca-baca dulu', SHARE_EXPERIENCES: 'Berbagi cerita',
     ATTEND_EVENTS: 'Ikut acara', JOIN_PROGRAMS: 'Ikut program', LEARN_PEER_SUPPORT: 'Belajar dukungan sebaya',
     STILL_FIGURING_OUT: 'Masih bingung',
     ONLINE: 'Online', LOCAL: 'Tatap muka', MIXED: 'Campuran', NO_PREFERENCE: 'Terserah',
@@ -18,7 +18,7 @@ const taxonomy: Record<Lang, Record<string, string>> = {
     GRIEF_LOSS: 'Grief and loss', RELATIONSHIPS: 'Relationships', PARENTING: 'Parenting', LIFE_CHANGES: 'Life changes',
     RECOVERY: 'Recovery', WORK_PRESSURE: 'Work pressure', GENERAL_SUPPORT: 'General support', OTHER: 'Other',
     PREFER_NOT_TO_SAY: 'Prefer not to say',
-    FIND_COMMUNITIES: 'Find communities', READ_QUIETLY: 'Read quietly first', SHARE_EXPERIENCES: 'Share my story',
+    FIND_COMMUNITIES: 'Find spaces that fit', READ_QUIETLY: 'Read quietly first', SHARE_EXPERIENCES: 'Share my story',
     ATTEND_EVENTS: 'Join events', JOIN_PROGRAMS: 'Join programmes', LEARN_PEER_SUPPORT: 'Learn peer support',
     STILL_FIGURING_OUT: 'Still figuring it out',
     ONLINE: 'Online', LOCAL: 'In person', MIXED: 'Mixed', NO_PREFERENCE: 'No preference',
@@ -41,7 +41,7 @@ export function spacePhoto(id: string) {
 
 /** Error key for API codes the member can act on. */
 export function errorKey(code: string) {
-  const known = ['OFFLINE', 'TIMEOUT', 'NETWORK_ERROR', 'POLICY_VERSION_CHANGED', 'GUIDELINES_CHANGED', 'SPACE_RESTRICTED', 'MEMBERSHIP_REQUIRED', 'CONTENT_REMOVED', 'RATE_LIMITED', 'ONBOARDING_INCOMPLETE', 'CONTENT_REQUIRES_EDIT', 'ANONYMOUS_DISABLED', 'POSTING_DISABLED', 'ALREADY_REVIEWED', 'SELF_HARM_SUPPORT'] as const;
+  const known = ['OFFLINE', 'TIMEOUT', 'NETWORK_ERROR', 'POLICY_VERSION_CHANGED', 'GUIDELINES_CHANGED', 'SPACE_RESTRICTED', 'MEMBERSHIP_REQUIRED', 'CONTENT_REMOVED', 'RATE_LIMITED', 'ONBOARDING_INCOMPLETE', 'CONTENT_REQUIRES_EDIT', 'ANONYMOUS_DISABLED', 'POSTING_DISABLED', 'ALREADY_REVIEWED', 'SELF_HARM_SUPPORT', 'DISPLAY_NAME_TOO_SOON', 'CURRENT_PASSWORD_WRONG', 'VALIDATION_ERROR'] as const;
   return (known as readonly string[]).includes(code) ? `err.${code as typeof known[number]}` as const : 'err.default' as const;
 }
 

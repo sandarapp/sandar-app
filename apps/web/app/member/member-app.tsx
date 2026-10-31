@@ -12,7 +12,7 @@ import { Onboarding } from './onboarding';
 import { Home } from './home';
 import { Discover } from './discover';
 import { SpacePage } from './space';
-import { Profile } from './profile';
+import { Settings } from './settings';
 import { Moderation } from './moderation';
 import { Welcome } from './welcome';
 
@@ -48,7 +48,7 @@ export function MemberApp({ route }: { route: MemberRoute }) {
       : <>
         {route.name === 'home' && <Home/>}
         {route.name === 'discover' && <Discover/>}
-        {route.name === 'profile' && <Profile/>}
+        {route.name === 'profile' && <Settings/>}
         {route.name === 'moderation' && <Moderation/>}
         {route.name === 'space' && <SpacePage id={route.id}/>}
       </>}
