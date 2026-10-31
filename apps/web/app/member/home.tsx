@@ -12,6 +12,8 @@ import { errorKey, label, spacePhoto } from './copy';
 import { Composer, Post } from './space';
 import { CreateSpace } from './create-space';
 import { SpaceInvite } from './invite';
+import { HelpfulPrompt } from './feedback';
+import { MoodCheck } from './mood';
 import { Skeleton } from './ui';
 import { communityFlow } from '../flags';
 
@@ -31,6 +33,7 @@ export function Home() {
   const [needs,setNeeds] = useState<string[]>([]),[topics,setTopics] = useState<Record<string,string[]>>({});
   const [hosted,setHosted] = useState<MemberSpaceSummary[] | null>(null),[setupAt,setSetupAt] = useState<string | null>(null);
   const [invite,setInvite] = useState(true),[creating,setCreating] = useState(false),[cardOff,setCardOff] = useState(cardDismissed);
+  const [posted,setPosted] = useState(false);
   const visit = useRef(false);
 
   // Posts from readable spaces, newest first, one request per space: joined spaces first, then up to the cap.
@@ -86,6 +89,7 @@ export function Home() {
         <h1 className="display serif">{home.firstVisit ? t('home.titleFirst') : t('home.title')}</h1>
       </header>
 
+      <MoodCheck/>
       {home.firstVisit && !showInvite && hosted !== null && <Tips/>}
       {showInvite && <SpaceInvite name={home.displayName} onStart={() => { setInvite(false);setCreating(true); }} onClose={() => setInvite(false)}/>}
       {creating && <CreateSpace onClose={() => setCreating(false)}/>}
@@ -94,13 +98,14 @@ export function Home() {
       {resume && <Link className="resume" href={`/spaces/${resume.id}`}><span className="kk">{t('home.continue')}</span><strong className="serif">{resume.name}</strong><span aria-hidden="true">→</span></Link>}
 
       {notice && <p className="alert a-ok" role="status">{notice}</p>}
+      {posted && <HelpfulPrompt moment="first-post"/>}
       {feedError && <p className="alert a-err" role="alert">{t(errorKey(feedError))}</p>}
 
       {joined.length === 0 ? <section className="stack">
         <p className="p">{t('home.startJoin')}</p>
         <h2 className="kk">{t('home.official')}</h2>
         <ul className="grid">{others.slice(0,9).map(s => <SpaceCard key={s.id} space={s} note={reason(s)}/>)}</ul>
-      </section> : postable.length > 0 ? <Composer spaces={postable} onSent={async () => { setNotice(t('compose.sent'));await loadFeed(spaces); }}/>
+      </section> : postable.length > 0 ? <Composer spaces={postable} onSent={async () => { setNotice(t('compose.sent'));setPosted(true);await loadFeed(spaces); }}/>
         : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.home')}</p>}
       <section className="stack" aria-label={t('home.feed')}>
         <h2 className="kk">{t('home.feed')}</h2>

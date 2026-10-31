@@ -1,17 +1,20 @@
 'use client';
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MoodState } from '../../../../packages/contracts/src/member';
 import { participationPreferences, supportInterests, type OnboardingState } from '../../../../packages/contracts/src/onboarding';
 import type { BlockedMember } from '../../../../packages/contracts/src/settings';
 import { selectInterest } from '../../../../packages/auth-client/src/onboarding-flow';
 import { apiLocale, useLang, type Lang } from '../i18n';
-import { call, codeOf, memberClient } from './client';
+import { call, codeOf } from './client';
 import { errorKey, label } from './copy';
 import { Boundaries } from './invite';
 import { Skeleton } from './ui';
 
 const CONTACT = 'hellosandar@zohomail.com';
-const sections = ['account','profile','preferences','language','blocked','boundaries','data'] as const;
-type Section = typeof sections[number];
+const groups = [['account'],['privacy','preferences','safety','language'],['data']] as const;
+type Section = typeof groups[number][number];
+const groupNames = ['set.group.account','set.group.experience','set.group.data'] as const;
 type Privacy = NonNullable<OnboardingState['privacy']>;
 type Preferences = NonNullable<OnboardingState['preferences']>;
 type Location = NonNullable<OnboardingState['location']>;
@@ -21,7 +24,7 @@ type Location = NonNullable<OnboardingState['location']>;
 export function Settings() {
   const { t } = useLang();
   const [section,setSection] = useState<Section>('account');
-  const [email,setEmail] = useState(''),[state,setState] = useState<OnboardingState | null>(null),[error,setError] = useState(''),[toast,setToast] = useState(''),[leaving,setLeaving] = useState(false);
+  const [email,setEmail] = useState(''),[state,setState] = useState<OnboardingState | null>(null),[error,setError] = useState(''),[toast,setToast] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const load = useCallback(async () => {
     setError('');
@@ -37,29 +40,25 @@ export function Settings() {
     // Other sections build their next save from this state, so it must stay current.
     void load();
   },[load]);
-  const logout = async () => {
-    setLeaving(true);
-    try { await memberClient().logout(); } catch { /* The server clears the cookie; go to login either way. */ }
-    window.location.assign('/login');
-  };
   if (!state) return error ? <div className="empty"><p className="p">{t(errorKey(error))}</p><button className="btn" onClick={() => void load()}>{t('common.tryAgain')}</button></div> : <Skeleton label={t('loading.page')} variant="page"/>;
   const shared = { onSaved: done,onError: (code: string) => { setToast('');setError(code); } };
   return <div className="settings">
     <nav className="settings-nav" aria-label={t('set.title')}>
-      <p className="kk">{t('set.kicker')}</p>
-      {sections.map(s => <button key={s} type="button" className={section === s ? 'set-item on' : 'set-item'} aria-current={section === s ? 'page' : undefined} onClick={() => { setSection(s);setError('');setToast(''); }}>{t(`set.nav.${s}`)}</button>)}
-      <button type="button" className="set-item" onClick={() => void logout()} disabled={leaving}>{t('common.logout')}</button>
+      <Link href="/home" className="sm-link back-home">{t('set.backHome')}</Link>
+      {groups.map((group,i) => <div key={groupNames[i]} className="set-group"><p className="kk">{t(groupNames[i]!)}</p>
+        {group.map(s => <button key={s} type="button" className={section === s ? 'set-item on' : 'set-item'} aria-current={section === s ? 'page' : undefined} onClick={() => { setSection(s);setError('');setToast(''); }}>{t(`set.nav.${s}`)}</button>)}
+      </div>)}
     </nav>
     <div className="settings-main stack">
       <h1 className="h">{t(`set.nav.${section}`)}</h1>
       {error && <p className="alert a-err" role="alert">{t(errorKey(error))}</p>}
       {toast && <p className="alert a-ok" role="status">{toast}</p>}
       {section === 'account' && <Account email={email} {...shared}/>}
-      {section === 'profile' && state.privacy && <Profile initial={state.privacy} {...shared}/>}
+      {section === 'privacy' && state.privacy && <PrivacyForm initial={state.privacy} {...shared}/>}
+      {section === 'privacy' && <Blocked {...shared}/>}
       {section === 'preferences' && <PreferencesForm initial={state.preferences ?? { needs: [],goals: [],communityType: 'NO_PREFERENCE' }} {...shared}/>}
       {section === 'language' && state.privacy && <LanguageRegion privacy={state.privacy} location={state.location} {...shared}/>}
-      {section === 'blocked' && <Blocked {...shared}/>}
-      {section === 'boundaries' && <section className="set-card"><Boundaries/></section>}
+      {section === 'safety' && <Safety {...shared}/>}
       {section === 'data' && <DataRights/>}
     </div>
   </div>;
@@ -98,27 +97,39 @@ function Account({ email,onSaved,onError }: { email: string } & Shared) {
   </>;
 }
 
-function Profile({ initial,onSaved,onError }: { initial: Privacy } & Shared) {
+function PrivacyForm({ initial,onSaved,onError }: { initial: Privacy } & Shared) {
   const { t } = useLang();
-  const [value,setValue] = useState(initial),[name,setName] = useState(initial.displayName),[busy,setBusy] = useState(false);
+  const [value,setValue] = useState(initial),[busy,setBusy] = useState(false);
   const save = async (next: Privacy) => {
     if (busy) return;
     const previous = value;
     setValue(next);setBusy(true);
     try { await call('/settings/privacy',{ method: 'PATCH',body: next });onSaved(t('set.saved')); }
-    catch (e) { setValue(previous);setName(previous.displayName);onError(codeOf(e)); }
+    catch (e) { setValue(previous);onError(codeOf(e)); }
     finally { setBusy(false); }
   };
   return <>
-    <form className="set-card stack" onSubmit={event => { event.preventDefault();if (name.trim() && name.trim() !== value.displayName) void save({ ...value,displayName: name.trim() }); }}>
-      <label className="lbl">{t('profile.displayName')}<input className="in" value={name} maxLength={80} autoComplete="nickname" onChange={e => setName(e.target.value)} disabled={busy}/><span className="hint">{t('set.nameNote')}</span></label>
-      <button className="btn fit" type="submit" disabled={busy || !name.trim() || name.trim() === value.displayName}>{t('set.saveName')}</button>
-    </form>
     <section className="set-card">
       <Switch on={value.allowAnonymousPosting} busy={busy} onChange={on => void save({ ...value,allowAnonymousPosting: on })} title={t('onb.privacy.anon')} note={t('set.anonNote')}/>
       <Switch on={value.profileVisibility === 'MEMBERS'} busy={busy} onChange={on => void save({ ...value,profileVisibility: on ? 'MEMBERS' : 'HIDDEN' })} title={t('onb.privacy.profile')}/>
       <Switch on={value.directoryVisibility === 'DISPLAY_NAME'} busy={busy} onChange={on => void save({ ...value,directoryVisibility: on ? 'DISPLAY_NAME' : 'HIDDEN' })} title={t('onb.privacy.directory')}/>
     </section>
+  </>;
+}
+
+// Content and safety: the mood card can be hidden completely, and the boundaries stay readable here.
+function Safety({ onSaved,onError }: Shared) {
+  const { t } = useLang();
+  const [enabled,setEnabled] = useState<boolean | null>(null),[busy,setBusy] = useState(false);
+  useEffect(() => { call<MoodState>('/mood').then(s => setEnabled(s.enabled)).catch(() => setEnabled(null)); },[]);
+  const change = async (on: boolean) => {
+    setBusy(true);
+    try { setEnabled((await call<MoodState>('/mood/settings',{ method: 'PATCH',body: { enabled: on } })).enabled);onSaved(t('set.saved')); }
+    catch (e) { onError(codeOf(e)); } finally { setBusy(false); }
+  };
+  return <>
+    {enabled !== null && <section className="set-card"><Switch on={enabled} busy={busy} onChange={on => void change(on)} title={t('set.moodCheck')} note={t('set.moodNote')}/></section>}
+    <section className="set-card stack"><h2 className="q">{t('bound.title')}</h2><Boundaries/></section>
   </>;
 }
 

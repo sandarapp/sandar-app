@@ -7,6 +7,7 @@ import { call, codeOf, takeSearch } from './client';
 import { errorKey, label, spacePhoto } from './copy';
 import { communityFlow } from '../flags';
 import { CreateSpace } from './create-space';
+import { HelpfulPrompt } from './feedback';
 import { Skeleton } from './ui';
 
 type Topic = typeof discoveryTopics[number];
@@ -60,6 +61,20 @@ export function Discover() {
       {next !== null && !loading && <button className="btn2 fit" onClick={() => void search(next,q,topics)}>{t('disc.more')}</button>}
       {communityFlow && <p className="sm">{t('disc.note')}</p>}
     </section>
+    <EventInterest/>
+    {!loading && !error && !results.length && q.trim() && <HelpfulPrompt moment="search-empty"/>}
     {creating && <CreateSpace initialName={creating.name} onClose={() => setCreating(null)}/>}
   </div>;
+}
+
+// WA-11d: Events isn't in the menu yet. This counts who would come, and nothing else.
+function EventInterest() {
+  const { t } = useLang();
+  const [interested,setInterested] = useState<boolean | null>(null);
+  useEffect(() => { call<{ interested: boolean }>('/interest/events').then(r => setInterested(r.interested)).catch(() => {}); },[]);
+  if (interested === null) return null;
+  return <aside className="side-card stack-sm">
+    <strong className="serif">{t('interest.t')}</strong><p className="sm">{t('interest.p')}</p>
+    {interested ? <p className="sm" role="status">{t('interest.done')}</p> : <button type="button" className="btn2 fit" onClick={() => { setInterested(true);void call('/interest/events',{ method: 'POST',body: {} }).catch(() => setInterested(false)); }}>{t('interest.cta')}</button>}
+  </aside>;
 }
