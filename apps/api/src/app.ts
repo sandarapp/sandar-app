@@ -4,6 +4,7 @@ import {addMemberHome} from './home/routes.js';
 import type {SafetyClassifier} from './spaces/safety.js';
 import {addSpaces} from './spaces/routes.js';
 import {addModeration} from './moderation/routes.js';
+import {addSettings} from './settings/routes.js';
 import { addOnboarding } from './onboarding/routes.js';
 import Fastify, { LogController, type FastifyServerOptions } from 'fastify';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
@@ -110,6 +111,7 @@ export async function buildApp(options: { db: Database; email: EmailProvider; lo
   addOnboarding(app,options.db,auth);
   addSpaces(app,options.db,options.safety);
   addModeration(app,options.db,auth);
+  addSettings(app,options.db,auth);
   addMemberHome(app,options.db);
   addDiscovery(app,options.db);
   addCommunityRouting(app,options.db,auth);

@@ -144,6 +144,24 @@ export class AuthService {
       WHERE id=(SELECT session_id FROM refresh_tokens WHERE token_hash=$1)`,[digest(refreshToken)]);
     return { message: 'Anda telah keluar.' };
   }
+  /** Changes the password of a signed-in member and ends their other sessions. */
+  async changePassword(userId: string, accessToken: string, current: string, next: string) {
+    const row = (await this.db.query<{password_hash: string}>('SELECT password_hash FROM users WHERE id=$1',[userId])).rows[0];
+    if (!row || !await verifyPassword(current,row.password_hash)) throw new ApiError(400,'CURRENT_PASSWORD_WRONG','Kata sandi saat ini salah.');
+    const passwordHash = await hashPassword(next);
+    await transaction(this.db, async tx => {
+      const user = (await tx.query<User>('SELECT * FROM users WHERE id=$1 FOR UPDATE',[userId])).rows[0]!;
+      await tx.query('UPDATE users SET password_hash=$1,updated_at=now() WHERE id=$2',[passwordHash,userId]);
+      await tx.query('UPDATE sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1 AND access_hash<>$2',[userId,digest(accessToken)]);
+      await this.outbox.enqueue(tx, { to: user.email, template: 'SECURITY_ALERT' });
+    });
+    await this.flushForTests();
+    return { changed: true };
+  }
+  async revokeOtherSessions(userId: string, accessToken: string) {
+    const result = await this.db.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND access_hash<>$2 AND revoked_at IS NULL',[userId,digest(accessToken)]);
+    return { revoked: result.rowCount ?? 0 };
+  }
   async resetPassword(raw: string, password: string) {
     const passwordHash = await hashPassword(password);
     await transaction(this.db, async tx => {

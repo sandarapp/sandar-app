@@ -24,6 +24,10 @@ const memberRoutes: [string, RegExp][] = [
   ['DELETE', new RegExp(`^space-posts/${id}/reactions/(SUPPORT|RELATE|ENCOURAGEMENT)$`)],
   ['POST', new RegExp(`^space-(posts|comments)/${id}/(report|block-author)$`)],
   ['GET', /^community-applications\/me$/],
+  ['PATCH', /^settings\/(privacy|preferences|location)$/],
+  ['POST', /^settings\/(password|sessions\/revoke-others)$/],
+  ['GET', /^settings\/blocks$/],
+  ['POST', /^settings\/blocks\/[0-9a-f]{32}\/unblock$/],
   ['GET', /^moderation\/(me|queue)$/],
   ['POST', new RegExp(`^moderation/posts/${id}/decision$`)],
   ['POST', new RegExp(`^moderation/reports/${id}/dismiss$`)]

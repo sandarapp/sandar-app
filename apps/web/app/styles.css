@@ -268,6 +268,17 @@ a.chip-tag:hover{background:var(--sel);color:var(--ink)}
 .tip{background:var(--surface);border:1px solid var(--accent);border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
 .tip strong{font-size:18px}
 
+/* Settings (WA-08) */
+.settings{display:grid;grid-template-columns:220px minmax(0,1fr);gap:32px;align-items:start;max-width:980px}
+.settings-nav{position:sticky;top:84px;display:flex;flex-direction:column;gap:2px}
+.settings-nav .kk{margin-bottom:8px}
+.set-item{border:0;background:none;text-align:left;min-height:42px;padding:0 14px;border-radius:12px;font-size:14px;font-weight:500;color:var(--body)}
+.set-item:hover{background:var(--fill)}
+.set-item.on{background:var(--sel);color:var(--ink);font-weight:700}
+.set-card{background:var(--surface);border:1px solid var(--line-soft);border-radius:20px;padding:18px 20px}
+.set-card .toggle:last-child{border-bottom:0}
+.settings-main{min-width:0}
+
 /* Moderation */
 .mod-list{list-style:none;display:flex;flex-direction:column;gap:14px}
 .mod-item{background:var(--surface);border:1px solid var(--line-soft);border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
@@ -333,6 +344,7 @@ a.chip-tag:hover{background:var(--sel);color:var(--ink)}
   .space-head{grid-template-columns:1fr}.space-photo{height:120px}
   .review>div{grid-template-columns:1fr auto}.review dd{grid-column:1}
   .compose-scrim{align-items:flex-end;padding:0}
+  .settings{grid-template-columns:1fr}.settings-nav{position:static;flex-direction:row;overflow-x:auto}.settings-nav .kk{display:none}.set-item{white-space:nowrap;flex:none}
   .welcome-card,.done-grid{grid-template-columns:1fr}.welcome-art{min-height:200px}
   .composer-modal{width:100%;border-radius:24px 24px 0 0;max-height:92svh}
   .mf{grid-template-columns:1fr auto}.mf .sm{grid-column:1/-1}
