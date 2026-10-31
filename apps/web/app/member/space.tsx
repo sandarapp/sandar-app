@@ -5,9 +5,14 @@ import type { OnboardingState } from '../../../../packages/contracts/src/onboard
 import type { Space, SpaceComment, SpacePost } from '../../../../packages/contracts/src/spaces';
 import { useLang } from '../i18n';
 import { HelpButton } from './help';
+import { Boundaries } from './invite';
+import { SpaceStatus } from './create-space';
 import { Avatar, SafetyModal, Skeleton } from './ui';
 import { call, codeOf } from './client';
 import { errorKey, reactionTypes, reportReasons, ruleKeys, spacePhoto, timeAgo } from './copy';
+
+// A phone number, email or street address in a post. Only prompts; the member decides.
+const contactDetails = /(\+?62|\b0)8\d{7,}|\b\d{3,4}[- ]\d{3,4}[- ]\d{3,5}\b|\S+@\S+\.\S+|\b[Jj][Ll][Nn]?\.?\s+\w|\bJalan\s+[A-Z]/;
 
 export function SpacePage({ id }: { id: string }) {
   const { t } = useLang();
@@ -47,14 +52,15 @@ export function SpacePage({ id }: { id: string }) {
   if (!space) return <Skeleton label={t('loading.page')}/>;
 
   const joined = space.membership === 'JOINED';
-  const rules = <ol className="rules">{ruleKeys.map(key => <li key={key}>{t(key)}</li>)}</ol>;
+  const member = space.kind === 'MEMBER_SPACE',waiting = ['IN_REVIEW','NEEDS_CHANGES','NOT_APPROVED'].includes(space.status);
+  const rules = <ol className="rules">{member ? space.rules?.map((rule,i) => <li key={i}>{rule}</li>) : ruleKeys.map(key => <li key={key}>{t(key)}</li>)}</ol>;
   return <div className="with-side">
     <div className="stack-lg">
       <Link href="/home" className="sm-link">{t('space.back')}</Link>
       <header className="space-head">
         <span className="space-photo" style={{ backgroundImage: `url(${spacePhoto(space.id)})` }} aria-hidden="true"/>
         <div className="stack-sm">
-          <p className="kk">{t('space.meta',{ operator: space.operator })}</p>
+          <p className="kk">{member ? t('space.meta.member',{ host: space.operator }) : t('space.meta',{ operator: space.operator })}</p>
           <h1 className="display serif">{space.name}</h1>
           <p className="p">{space.purpose}</p>
           <p className="sm">{t('space.for',{ audience: space.audience })}</p>
@@ -64,7 +70,8 @@ export function SpacePage({ id }: { id: string }) {
       {error && <p className="alert a-err" role="alert">{t(errorKey(error))}</p>}
       {notice && <p className="alert a-ok" role="status">{notice}</p>}
 
-      {!joined && <section className="panel stack">
+      {waiting && <SpaceStatus space={space}/>}
+      {!joined && !waiting && <section className="panel stack">
         <h2 className="h3 serif">{t('space.rules')}</h2>
         {rules}
         {space.status !== 'ACTIVE' || !space.permissions.join
@@ -84,7 +91,8 @@ export function SpacePage({ id }: { id: string }) {
     </div>
     <aside className="side-card stack">
       <h2 className="q">{t('space.about')}</h2>
-      <p className="sm">{t('space.about.p')}</p>
+      <p className="sm">{member ? t('space.about.member') : t('space.about.p')}</p>
+      <details className="stack-sm"><summary className="q">{t('bound.title')}</summary><Boundaries/></details>
       {joined && <><h2 className="q">{t('space.rules')}</h2>{rules}</>}
     </aside>
   </div>;
@@ -243,8 +251,11 @@ function ComposerModal({ spaces,me,onClose,onSent }: { spaces: Space[]; me: stri
     document.addEventListener('keydown',key);
     return () => document.removeEventListener('keydown',key);
   },[close,picker,safety]);
-  const send = async () => {
+  const [care,setCare] = useState(false);
+  const send = async (checked = false) => {
     if (busy || !body.trim() || !space) return;
+    if (!checked && contactDetails.test(body)) return setCare(true);
+    setCare(false);
     setBusy(true);setError('');
     try {
       await call(`/spaces/${space.id}/posts`,{ method: 'POST',body: { requestId: requestId.current,identityMode: anonymous ? 'ANONYMOUS' : 'PROFILE',body: body.trim() } });
@@ -277,6 +288,7 @@ function ComposerModal({ spaces,me,onClose,onSent }: { spaces: Space[]; me: stri
       <div className="mf"><p className="sm">{t('compose.review')}</p><span className="count">{t('compose.count',{ n: body.length })}</span><button type="button" className="btn" onClick={() => void send()} disabled={busy || !body.trim() || !space}>{busy ? t('common.working') : t('compose.submit')}</button></div>
       <p className="sm mf-help">{t('compose.crisis')} <HelpButton/></p>
     </div>
+    {care && <div className="scrim" onClick={event => event.stopPropagation()}><div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="care-title"><h2 id="care-title" className="serif">{t('care.title')}</h2><p className="p">{t('care.p')}</p><div className="modal-actions"><button type="button" className="btn" onClick={() => { setCare(false);area.current?.focus(); }}>{t('care.edit')}</button><button type="button" className="btn2" onClick={() => void send(true)}>{t('care.post')}</button></div></div></div>}
     {safety && <SafetyModal onClose={() => { setSafety(false);area.current?.focus(); }}/>}
   </div>;
 }

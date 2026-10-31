@@ -1,7 +1,7 @@
 export type EmailMessage = {
   id?: string;
   to: string;
-  template: 'VERIFY_EMAIL' | 'RESET_PASSWORD' | 'SECURITY_ALERT';
+  template: 'VERIFY_EMAIL' | 'RESET_PASSWORD' | 'SECURITY_ALERT' | 'SPACE_REVIEWED';
   token?: string;
 };
 export interface EmailProvider { send(message: EmailMessage): Promise<void> }

@@ -21,6 +21,10 @@ export class AuthService {
     return new AuthService(db, new EmailOutbox(db, email, encryptionKey, onEmailFailure), await hashPassword(newToken()));
   }
   async flushEmails() { await this.outbox.flush(); }
+  async notifySpaceReviewed(tx: Transaction, userId: string) {
+    const user = (await tx.query('SELECT email FROM users WHERE id=$1',[userId])).rows[0];
+    if (user) await this.outbox.enqueue(tx, { to: user.email, template: 'SPACE_REVIEWED' });
+  }
   private async flushForTests() { if (process.env.NODE_ENV === 'test') await this.flushEmails(); }
   private async actionToken(tx: Transaction, userId: string, purpose: Purpose) {
     const token = newToken();

@@ -6,13 +6,14 @@ import { useLang } from '../i18n';
 import { call, codeOf, takeSearch } from './client';
 import { errorKey, label, spacePhoto } from './copy';
 import { communityFlow } from '../flags';
+import { CreateSpace } from './create-space';
 import { Skeleton } from './ui';
 
 type Topic = typeof discoveryTopics[number];
 
 export function Discover() {
   const { lang,t } = useLang();
-  const [q,setQ] = useState(''),[topics,setTopics] = useState<Topic[]>([]);
+  const [q,setQ] = useState(''),[topics,setTopics] = useState<Topic[]>([]),[creating,setCreating] = useState<{ name?: string } | null>(null);
   useEffect(() => { const handed = takeSearch();if (handed) setQ(handed); },[]);
   const [results,setResults] = useState<DiscoveryResult[]>([]),[next,setNext] = useState<number | null>(null);
   const [loading,setLoading] = useState(true),[error,setError] = useState(''),[personal,setPersonal] = useState(false);
@@ -30,7 +31,7 @@ export function Discover() {
   const toggle = (topic: Topic) => setTopics(list => list.includes(topic) ? list.filter(x => x !== topic) : [...list,topic]);
   return <div className="stack-lg">
     <header className="stack">
-      <h1 className="display serif">{t('disc.title')}</h1>
+      <div className="row-between"><h1 className="display serif">{t('disc.title')}</h1><button type="button" className="btn2" onClick={() => setCreating({})}>{t('disc.create')}</button></div>
       <p className="p">{personal && !q && !topics.length ? t('disc.leadPersonal') : t('disc.lead')}</p>
       <label className="lbl visually-label">{t('search.label')}<input className="search wide" type="search" value={q} maxLength={100} placeholder={t('disc.placeholder')} onChange={e => setQ(e.target.value)}/></label>
       <div className="chips" role="group" aria-label={t('disc.filters')}>
@@ -41,23 +42,24 @@ export function Discover() {
 
     {error && <p className="alert a-err" role="alert">{t(errorKey(error))} <button className="link-button" onClick={() => void search(0,q,topics)}>{t('common.tryAgain')}</button></p>}
     <section aria-live="polite" className="stack">
-      {!loading && !error && !results.length && <div className="dashed"><strong className="serif">{t('disc.empty')}</strong><p className="sm">{t('disc.empty.p')}</p>{topics.length > 0 && <button className="btn2 fit" onClick={() => setTopics([])}>{t('disc.clear')}</button>}</div>}
+      {!loading && !error && !results.length && <div className="dashed"><strong className="serif">{q.trim() ? t('disc.none.t',{ q: q.trim() }) : t('disc.empty')}</strong><p className="sm">{q.trim() ? t('disc.none.p') : t('disc.empty.p')}</p>{q.trim() && <button type="button" className="btn fit" onClick={() => setCreating({ name: q.trim().slice(0,40) })}>{t('disc.none.cta')}</button>}{topics.length > 0 && <button className="btn2 fit" onClick={() => setTopics([])}>{t('disc.clear')}</button>}</div>}
       <ul className="grid">{results.map(r => {
-        const official = r.kind === 'OFFICIAL_SANDAR';
+        const official = r.kind === 'OFFICIAL_SANDAR',member = r.kind === 'MEMBER_SPACE';
         const body = <>
           <span className="sp-img" style={{ backgroundImage: `url(${spacePhoto(r.id)})` }} aria-hidden="true"/>
           <span className="sp-body">
-            <span className={official ? 'mini mo' : 'mini'}>{official ? t('disc.official') : t('disc.verified')}</span>
+            <span className={official ? 'mini mo' : 'mini'}>{official ? t('disc.official') : member ? t('disc.member') : t('disc.verified')}</span>
             <strong className="serif">{r.name}</strong>
-            <span className="sm">{official ? t('disc.openToJoin') : r.topics.slice(0,2).map(x => label(lang,x)).join(' · ')}</span>
+            <span className="sm">{official || member ? t('disc.openToJoin') : r.topics.slice(0,2).map(x => label(lang,x)).join(' · ')}</span>
           </span>
         </>;
         // Partner community pages open in a later release; their cards stay informational.
-        return <li key={r.id}>{official ? <Link href={`/spaces/${r.id}`} className="sp">{body}</Link> : <div className="sp muted">{body}<span className="badge">{t('disc.soon')}</span></div>}</li>;
+        return <li key={r.id}>{official || member ? <Link href={`/spaces/${r.id}`} className="sp">{body}</Link> : <div className="sp muted">{body}<span className="badge">{t('disc.soon')}</span></div>}</li>;
       })}</ul>
       {loading && <Skeleton label={t('disc.searching')} variant="page"/>}
       {next !== null && !loading && <button className="btn2 fit" onClick={() => void search(next,q,topics)}>{t('disc.more')}</button>}
       {communityFlow && <p className="sm">{t('disc.note')}</p>}
     </section>
+    {creating && <CreateSpace initialName={creating.name} onClose={() => setCreating(null)}/>}
   </div>;
 }

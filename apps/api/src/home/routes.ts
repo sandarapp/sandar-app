@@ -31,7 +31,7 @@ export function addMemberHome(app:FastifyInstance,db:Database){
    if(allowed&&(!context.post_id||await validPost(tx,userId,context.space_id,context.post_id)))continueContext={spaceId:context.space_id,postId:context.post_id,visitedAt:context.visited_at.toISOString()};
    else await tx.query('DELETE FROM member_home_context WHERE user_id=$1',[userId]);
   }
-  const activity=(await tx.query(`SELECT p.id,p.space_id,p.created_at FROM space_posts p JOIN support_spaces s ON s.id=p.space_id JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1 WHERE m.status='JOINED' AND s.kind='OFFICIAL_SANDAR' AND s.status='ACTIVE' AND p.status='VISIBLE' AND ${notBlocked} ORDER BY p.created_at DESC LIMIT 5`,[userId])).rows;
+  const activity=(await tx.query(`SELECT p.id,p.space_id,p.created_at FROM space_posts p JOIN support_spaces s ON s.id=p.space_id JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1 WHERE m.status='JOINED' AND s.kind IN ('OFFICIAL_SANDAR','MEMBER_SPACE') AND s.status='ACTIVE' AND p.status='VISIBLE' AND ${notBlocked} ORDER BY p.created_at DESC LIMIT 5`,[userId])).rows;
   const visits=(await tx.query('SELECT count(*)::int AS total FROM member_home_visits WHERE user_id=$1',[userId])).rows[0].total;
   return {displayName,firstVisit:visits===0,joinedSpaceIds:joined.map(r=>r.id),partners,events:[],continueContext,recentActivity:activity.map(r=>({spaceId:r.space_id,postId:r.id,createdAt:r.created_at.toISOString()})),capabilities:{events:false,partnerParticipation:false}};
  }));

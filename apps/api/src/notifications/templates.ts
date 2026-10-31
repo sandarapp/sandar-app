@@ -7,10 +7,10 @@ export function renderEmail(message: EmailMessage, baseUrl: string) {
   // Loopback HTTP is only allowed in development; mark those emails so they are never mistaken for real ones.
   const development = url.protocol === 'http:';
   const verification = message.template === 'VERIFY_EMAIL';
-  const title = verification ? 'Verifikasi email Sandar Anda' : message.template === 'RESET_PASSWORD' ? 'Atur ulang kata sandi Sandar' : 'Kata sandi Sandar diperbarui';
-  const copy = verification ? 'Konfirmasikan alamat email Anda untuk melanjutkan. Tautan berlaku selama 24 jam.' : message.template === 'RESET_PASSWORD' ? 'Anda meminta pengaturan ulang kata sandi. Tautan berlaku selama 30 menit.' : 'Kata sandi Anda telah diperbarui dan semua sesi sebelumnya telah diakhiri. Jika bukan Anda, atur ulang kata sandi melalui aplikasi.';
+  const title = verification ? 'Verifikasi email Sandar Anda' : message.template === 'RESET_PASSWORD' ? 'Atur ulang kata sandi Sandar' : message.template === 'SPACE_REVIEWED' ? 'Ruangmu di Sandar sudah ditinjau' : 'Kata sandi Sandar diperbarui';
+  const copy = verification ? 'Konfirmasikan alamat email Anda untuk melanjutkan. Tautan berlaku selama 24 jam.' : message.template === 'RESET_PASSWORD' ? 'Anda meminta pengaturan ulang kata sandi. Tautan berlaku selama 30 menit.' : message.template === 'SPACE_REVIEWED' ? 'Tim Sandar sudah meninjau ruang yang kamu ajukan. Masuk ke Sandar untuk melihat hasilnya di Beranda.' : 'Kata sandi Anda telah diperbarui dan semua sesi sebelumnya telah diakhiri. Jika bukan Anda, atur ulang kata sandi melalui aplikasi.';
   let link: string | null = null;
-  if (message.template !== 'SECURITY_ALERT') {
+  if (message.template !== 'SECURITY_ALERT' && message.template !== 'SPACE_REVIEWED') {
     if (!message.token || !/^[A-Za-z0-9_-]{43}$/.test(message.token)) throw new Error('A valid action token is required');
     url.pathname = verification ? '/verify-email' : '/reset-password';
     // Fragments are not transmitted in HTTP requests or Referer headers.

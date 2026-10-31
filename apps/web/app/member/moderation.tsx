@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { moderationRules, type ModerationQueue } from '../../../../packages/contracts/src/moderation';
 import { useLang } from '../i18n';
 import { call, codeOf } from './client';
-import { errorKey, timeAgo } from './copy';
+import { errorKey, label, timeAgo } from './copy';
 import { Skeleton } from './ui';
 
 const ruleLabel = { RULE_1: 'rule.1', RULE_2: 'rule.2', RULE_3: 'rule.3', RULE_4: 'rule.4', RULE_5: 'rule.5', OTHER: 'mod.rule.OTHER' } as const;
@@ -12,7 +12,7 @@ const ruleLabel = { RULE_1: 'rule.1', RULE_2: 'rule.2', RULE_3: 'rule.3', RULE_4
 export function Moderation() {
   const { lang,t } = useLang();
   const [queue,setQueue] = useState<ModerationQueue | null>(null),[error,setError] = useState(''),[notice,setNotice] = useState(''),[busy,setBusy] = useState<string | null>(null);
-  const [rules,setRules] = useState<Record<string,string>>({});
+  const [rules,setRules] = useState<Record<string,string>>({}),[notes,setNotes] = useState<Record<string,string>>({});
   const load = useCallback(async () => {
     setError('');
     try { setQueue(await call<ModerationQueue>('/moderation/queue')); } catch (e) { setError(codeOf(e)); }
@@ -51,6 +51,24 @@ export function Moderation() {
           <button className="btn" onClick={() => void decide(p.postId,'APPROVE')} disabled={busy !== null}>{t('mod.approve')}</button>
           {ruleSelect(p.postId)}
           <button className="btn2" onClick={() => void decide(p.postId,'REMOVE')} disabled={busy !== null || !rules[p.postId]}>{t('mod.remove')}</button>
+        </div>
+      </li>)}</ul>
+    </section>
+
+    <section className="stack">
+      <h2 className="kk">{t('mod.spaces')} · {queue.spaces.length}</h2>
+      {!queue.spaces.length && <p className="sm">{t('mod.noSpaces')}</p>}
+      <ul className="mod-list">{queue.spaces.map(s => <li key={s.spaceId} className="mod-item">
+        <p className="sm">{t('mod.spaceMeta',{ host: s.hostName })} · {timeAgo(s.createdAt,lang,t)}</p>
+        <strong className="serif">{s.name}</strong>
+        <p className="p mod-body">{s.purpose}</p>
+        <p className="sm">{s.topics.map(x => label(lang,x)).join(' · ')} · {s.anonymousAllowed ? t('cs.preview.anon') : t('cs.preview.named')}</p>
+        <ol className="rules">{s.rules.map((rule,i) => <li key={i}>{rule}</li>)}</ol>
+        <label className="lbl compact">{t('mod.spaceNote')}<textarea className="ta" rows={2} maxLength={300} value={notes[s.spaceId] ?? ''} onChange={e => setNotes(n => ({ ...n,[s.spaceId]: e.target.value }))}/></label>
+        <div className="mod-actions">
+          <button className="btn" onClick={() => void act(s.spaceId,`/moderation/spaces/${s.spaceId}/decision`,{ decision: 'APPROVE' },t('mod.spaceApproved'))} disabled={busy !== null}>{t('mod.approve')}</button>
+          <button className="btn2" onClick={() => void act(s.spaceId,`/moderation/spaces/${s.spaceId}/decision`,{ decision: 'CHANGES',note: notes[s.spaceId] },t('mod.spaceSentBack'))} disabled={busy !== null || (notes[s.spaceId]?.trim().length ?? 0) < 5}>{t('mod.spaceChanges')}</button>
+          <button className="btn2" onClick={() => void act(s.spaceId,`/moderation/spaces/${s.spaceId}/decision`,{ decision: 'REJECT',note: notes[s.spaceId] },t('mod.spaceRejected'))} disabled={busy !== null || (notes[s.spaceId]?.trim().length ?? 0) < 5}>{t('mod.spaceReject')}</button>
         </div>
       </li>)}</ul>
     </section>

@@ -6,10 +6,11 @@ import { selectInterest } from '../../../../packages/auth-client/src/onboarding-
 import { apiLocale, useLang, type Lang } from '../i18n';
 import { call, codeOf, memberClient } from './client';
 import { errorKey, label } from './copy';
+import { Boundaries } from './invite';
 import { Skeleton } from './ui';
 
 const CONTACT = 'hellosandar@zohomail.com';
-const sections = ['account','profile','preferences','language','blocked','data'] as const;
+const sections = ['account','profile','preferences','language','blocked','boundaries','data'] as const;
 type Section = typeof sections[number];
 type Privacy = NonNullable<OnboardingState['privacy']>;
 type Preferences = NonNullable<OnboardingState['preferences']>;
@@ -58,6 +59,7 @@ export function Settings() {
       {section === 'preferences' && <PreferencesForm initial={state.preferences ?? { needs: [],goals: [],communityType: 'NO_PREFERENCE' }} {...shared}/>}
       {section === 'language' && state.privacy && <LanguageRegion privacy={state.privacy} location={state.location} {...shared}/>}
       {section === 'blocked' && <Blocked {...shared}/>}
+      {section === 'boundaries' && <section className="set-card"><Boundaries/></section>}
       {section === 'data' && <DataRights/>}
     </div>
   </div>;

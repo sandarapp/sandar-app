@@ -6,7 +6,7 @@ import { digest } from '../auth/crypto.js';
 import type { EmailMessage, EmailProvider } from './email.js';
 
 const testKey = randomBytes(32).toString('hex');
-const messageSchema = z.object({ to: z.string().email(), template: z.enum(['VERIFY_EMAIL','RESET_PASSWORD','SECURITY_ALERT']), token: z.string().optional() });
+const messageSchema = z.object({ to: z.string().email(), template: z.enum(['VERIFY_EMAIL','RESET_PASSWORD','SECURITY_ALERT','SPACE_REVIEWED']), token: z.string().optional() });
 export class EmailOutbox {
   private box: SecretBox;
   constructor(private db: Database, private provider: EmailProvider, key: string | undefined, private onFailure = () => {}) {

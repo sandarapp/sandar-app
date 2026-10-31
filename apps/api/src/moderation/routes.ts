@@ -46,7 +46,9 @@ export function addModeration(app:FastifyInstance,db:Database,auth:AuthService){
     (SELECT count(*)::int FROM content_reports x WHERE x.post_id=p.id AND x.status='OPEN') AS reports_on_post
    FROM content_reports r JOIN space_posts p ON p.id=r.post_id JOIN support_spaces s ON s.id=p.space_id
    WHERE r.status='OPEN' AND p.status<>'REMOVED' ORDER BY r.created_at LIMIT 100`)).rows;
+  const spaces=(await tx.query("SELECT id,name,purpose,topics,rules,anonymous_allowed,operator_name,updated_at FROM support_spaces WHERE status='IN_REVIEW' ORDER BY updated_at LIMIT 100")).rows;
   const queue:schema.ModerationQueue={
+   spaces:spaces.map(s=>({spaceId:s.id,name:s.name,purpose:s.purpose,topics:s.topics??[],rules:s.rules??[],anonymousAllowed:s.anonymous_allowed,hostName:s.operator_name,createdAt:s.updated_at.toISOString()})),
    posts:posts.map(p=>({postId:p.id,spaceId:p.space_id,spaceName:p.space_name,body:p.body,identityMode:p.identity_mode,authorName:p.identity_mode==='ANONYMOUS'?null:p.display_name??null,createdAt:p.created_at.toISOString(),highConcern:p.high_concern})),
    reports:reports.map(r=>({reportId:r.id,reason:r.reason,createdAt:r.created_at.toISOString(),postId:r.post_id,postBody:r.body,spaceName:r.space_name,reportsOnPost:r.reports_on_post}))
   };
@@ -71,6 +73,20 @@ export function addModeration(app:FastifyInstance,db:Database,auth:AuthService){
   await tx.query("INSERT INTO moderation_actions(id,moderator_user_id,action,post_id,rule) VALUES($1,$2,'REMOVE_POST',$3,$4)",[randomUUID(),moderatorId,postId,v.rule]);
   await event(tx,'post_removed',p.space_id);
   return {postId,status:'REMOVED'};
+ }));
+
+ app.post('/v1/moderation/spaces/:id/decision',req=>run(req,async(tx,moderatorId)=>{
+  const v=schema.spaceDecision.parse(req.body),spaceId=id(req);
+  const s=(await tx.query("SELECT status,host_user_id,guidelines_version FROM support_spaces WHERE id=$1 AND kind='MEMBER_SPACE' FOR UPDATE",[spaceId])).rows[0];
+  if(!s)throw gone();
+  if(s.status!=='IN_REVIEW')throw new ApiError(409,'ALREADY_REVIEWED','Ruang ini sudah ditinjau.');
+  const outcome={APPROVE:['ACTIVE','APPROVE_SPACE'],CHANGES:['NEEDS_CHANGES','REQUEST_SPACE_CHANGES'],REJECT:['NOT_APPROVED','REJECT_SPACE']}[v.decision] as [string,string];
+  await tx.query('UPDATE support_spaces SET status=$2,review_note=$3,updated_at=now() WHERE id=$1',[spaceId,outcome[0],v.decision==='APPROVE'?null:v.note]);
+  // The host joins their own space the moment it opens.
+  if(v.decision==='APPROVE')await tx.query("INSERT INTO space_memberships(space_id,user_id,status,guidelines_version) VALUES($1,$2,'JOINED',$3) ON CONFLICT(space_id,user_id) DO UPDATE SET status='JOINED',left_at=NULL,updated_at=now()",[spaceId,s.host_user_id,s.guidelines_version]);
+  await tx.query('INSERT INTO moderation_actions(id,moderator_user_id,action,space_id) VALUES($1,$2,$3,$4)',[randomUUID(),moderatorId,outcome[1],spaceId]);
+  await auth.notifySpaceReviewed(tx,s.host_user_id);
+  return {spaceId,status:outcome[0]};
  }));
 
  app.post('/v1/moderation/reports/:id/dismiss',req=>run(req,async(tx,moderatorId)=>{

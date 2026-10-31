@@ -25,15 +25,16 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
   }:undefined},(tx,member)=>work(tx,member.id));}
   catch(error){if(joinId)await event(db,'official_space_join_failed',joinId);throw error;}
  }
- const spaceSql=`SELECT s.*,COALESCE(t.name,s.name) AS name,COALESCE(t.purpose,s.purpose) AS purpose,COALESCE(t.audience,s.audience) AS audience,COALESCE(t.topic,s.topic) AS topic,m.status AS membership
+ const spaceSql=`SELECT s.*,COALESCE(t.name,s.name) AS name,COALESCE(t.purpose,s.purpose) AS purpose,COALESCE(t.audience,s.audience) AS audience,COALESCE(t.topic,s.topic) AS topic,m.status AS membership,$1::uuid AS viewer_id
    FROM support_spaces s LEFT JOIN space_memberships m ON m.space_id=s.id AND m.user_id=$1 LEFT JOIN support_space_translations t ON t.space_id=s.id AND t.locale=$2
-   WHERE s.kind='OFFICIAL_SANDAR'`;
+   WHERE (s.kind='OFFICIAL_SANDAR' OR (s.kind='MEMBER_SPACE' AND (s.status='ACTIVE' OR s.host_user_id=$1)))`;
  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database row
  function projectSpace(row:Record<string,any>):schema.Space{
   const joined=row.status==='ACTIVE'&&row.membership==='JOINED';
   // Every onboarded member can read an active space; posting and replying follow the join, which accepts the guidelines.
   const shut=['BANNED','RESTRICTED'].includes(row.membership);
-  return {id:row.id,kind:'OFFICIAL_SANDAR',label:'Official Sandar Space',name:row.name,purpose:row.purpose,audience:row.audience,topic:row.topic,operator:row.operator_name,status:row.status,guidelinesVersion:row.guidelines_version,developmentSample:row.development_sample,membership:row.membership??'NOT_JOINED',permissions:{join:row.status==='ACTIVE'&&!['BANNED','RESTRICTED','JOINED'].includes(row.membership),read:row.status==='ACTIVE'&&!shut,post:joined&&row.posting_enabled,comment:joined&&row.commenting_enabled,anonymous:joined&&row.anonymous_allowed}};
+  const hostedByMe=row.host_user_id===row.viewer_id;
+  return {id:row.id,kind:row.kind,label:row.kind==='MEMBER_SPACE'?'Member space':'Official Sandar Space',name:row.name,purpose:row.purpose,audience:row.audience,topic:row.topic,operator:row.operator_name,status:row.status,guidelinesVersion:row.guidelines_version,developmentSample:row.development_sample,membership:row.membership??'NOT_JOINED',rules:row.rules,topics:row.topics,anonymousAllowed:row.anonymous_allowed,hostedByMe,reviewNote:hostedByMe?row.review_note:null,permissions:{join:row.status==='ACTIVE'&&!['BANNED','RESTRICTED','JOINED'].includes(row.membership),read:row.status==='ACTIVE'&&!shut,post:joined&&row.posting_enabled,comment:joined&&row.commenting_enabled,anonymous:joined&&row.anonymous_allowed}};
  }
  async function space(tx:Transaction,userId:string,id:string,locale='id-ID'):Promise<schema.Space>{
   const row=(await tx.query(`${spaceSql} AND s.id=$3`,[userId,locale,id])).rows[0];
@@ -76,7 +77,7 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
  const projectPost=async(tx:Transaction,userId:string,p:Record<string,any>,locale='id-ID')=>(await projectPosts(tx,userId,[p],locale))[0]!;
  /* eslint-enable @typescript-eslint/no-explicit-any */
  app.get('/v1/spaces',req=>run(req,async(tx,userId)=>{
-  return (await tx.query(`${spaceSql} ORDER BY s.created_at,s.id`,[userId,contentLocale(req)])).rows.map(projectSpace);
+  return (await tx.query(`${spaceSql} AND s.status IN ('ACTIVE','RESTRICTED') ORDER BY (s.kind='OFFICIAL_SANDAR') DESC,s.created_at,s.id LIMIT 50`,[userId,contentLocale(req)])).rows.map(projectSpace);
  }));
  app.get('/v1/spaces/:id',req=>run(req,(tx,userId)=>space(tx,userId,id(req),contentLocale(req))));
  app.post('/v1/spaces/:id/join',req=>run(req,async(tx,userId)=>{
