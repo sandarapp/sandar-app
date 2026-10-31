@@ -9,13 +9,13 @@ import type {AuthService} from '../auth/service.js';
 import {authorize} from '../auth/authorization.js';
 import {ApiError,invalidSession} from '../core/errors.js';
 import {rateLimit} from '../core/rate-limit.js';
+import {activeRoles,audit,requireOps} from '../ops/routes.js';
 
 // Human review of member posts and reports. Only accounts with a MODERATOR
 // staff role reach the queue; anonymous authors stay anonymous here too.
-const forbidden=()=>new ApiError(403,'FORBIDDEN','Anda tidak memiliki akses.');
 const gone=()=>new ApiError(404,'NOT_FOUND','Konten tidak ditemukan.');
 async function isModerator(db:Pick<Transaction,'query'>,userId:string){
- return Boolean((await db.query("SELECT 1 FROM staff_roles WHERE user_id=$1 AND role='MODERATOR'",[userId])).rowCount);
+ return (await activeRoles(db,userId)).includes('MODERATOR');
 }
 async function event(tx:Transaction,name:string,spaceId:string){await tx.query('INSERT INTO space_analytics(id,event,space_id) VALUES($1,$2,$3)',[randomUUID(),name,spaceId]);}
 
@@ -25,12 +25,9 @@ export function addModeration(app:FastifyInstance,db:Database,auth:AuthService){
   const current=await auth.authenticate(parsed.data);authorize(current,'member:participate');return current;
  }
  async function run(request:FastifyRequest,work:(tx:Transaction,moderatorId:string)=>Promise<unknown>){
-  const current=await user(request);
+  const current=await requireOps(db,auth,request,['MODERATOR']);
   if(request.method!=='GET')await rateLimit(db,`moderation-write:${current.id}`,120,60);
-  return transaction(db,async tx=>{
-   if(!await isModerator(tx,current.id))throw forbidden();
-   return {data:await work(tx,current.id),error:null};
-  });
+  return transaction(db,async tx=>({data:await work(tx,current.id),error:null}));
  }
  const id=(req:FastifyRequest)=>uuid.parse((req.params as Record<string,string>).id);
 
@@ -64,13 +61,15 @@ export function addModeration(app:FastifyInstance,db:Database,auth:AuthService){
    await tx.query("UPDATE space_posts SET status='VISIBLE',updated_at=now() WHERE id=$1",[postId]);
    await tx.query("UPDATE space_safety_cases SET status='CLOSED' WHERE post_id=$1",[postId]);
    await tx.query("INSERT INTO moderation_actions(id,moderator_user_id,action,post_id) VALUES($1,$2,'APPROVE_POST',$3)",[randomUUID(),moderatorId,postId]);
-   await event(tx,'post_approved',p.space_id);
+   await audit(tx,moderatorId,'APPROVE_POST','POST',postId);
+  await event(tx,'post_approved',p.space_id);
    return {postId,status:'VISIBLE'};
   }
   await tx.query("UPDATE space_posts SET status='REMOVED',updated_at=now() WHERE id=$1",[postId]);
   await tx.query("UPDATE content_reports SET status='CLOSED' WHERE post_id=$1 AND status='OPEN'",[postId]);
   await tx.query("UPDATE space_safety_cases SET status='CLOSED' WHERE post_id=$1 OR report_id IN (SELECT id FROM content_reports WHERE post_id=$1)",[postId]);
   await tx.query("INSERT INTO moderation_actions(id,moderator_user_id,action,post_id,rule) VALUES($1,$2,'REMOVE_POST',$3,$4)",[randomUUID(),moderatorId,postId,v.rule]);
+  await audit(tx,moderatorId,'REMOVE_CONTENT','POST',postId,v.rule);
   await event(tx,'post_removed',p.space_id);
   return {postId,status:'REMOVED'};
  }));
@@ -85,6 +84,7 @@ export function addModeration(app:FastifyInstance,db:Database,auth:AuthService){
   // The host joins their own space the moment it opens.
   if(v.decision==='APPROVE')await tx.query("INSERT INTO space_memberships(space_id,user_id,status,guidelines_version) VALUES($1,$2,'JOINED',$3) ON CONFLICT(space_id,user_id) DO UPDATE SET status='JOINED',left_at=NULL,updated_at=now()",[spaceId,s.host_user_id,s.guidelines_version]);
   await tx.query('INSERT INTO moderation_actions(id,moderator_user_id,action,space_id) VALUES($1,$2,$3,$4)',[randomUUID(),moderatorId,outcome[1],spaceId]);
+  await audit(tx,moderatorId,outcome[1],'SPACE',spaceId,v.decision==='APPROVE'?null:v.note);
   await auth.notifySpaceReviewed(tx,s.host_user_id);
   return {spaceId,status:outcome[0]};
  }));
