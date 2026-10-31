@@ -7,6 +7,7 @@ import type { Space } from '../../../../packages/contracts/src/spaces';
 import { apiLocale, LangSwitch, useLang } from '../i18n';
 import { call, handOffSearch, routingClient, setApiLocale } from './client';
 import { HelpButton } from './help';
+import { Skeleton, Wordmark } from './ui';
 import { Onboarding } from './onboarding';
 import { Home } from './home';
 import { Discover } from './discover';
@@ -40,7 +41,7 @@ export function MemberApp({ route }: { route: MemberRoute }) {
   if (route.name === 'onboarding') return ready ? <Onboarding/> : <Bare failed={failed}/>;
   return <Shell route={route} ready={ready}>
     {failed ? <div className="empty"><h1 className="h serif">{t('shell.loadFail')}</h1><p className="p">{t('shell.loadFail.p')}</p><button className="btn" onClick={() => window.location.reload()}>{t('common.reload')}</button></div>
-      : !ready ? <p className="loading" role="status">{t('common.loading')}</p>
+      : !ready ? <Skeleton label={t('loading.page')}/>
       : <>
         {route.name === 'home' && <Home/>}
         {route.name === 'discover' && <Discover/>}
@@ -53,7 +54,7 @@ export function MemberApp({ route }: { route: MemberRoute }) {
 
 function Bare({ failed }: { failed: boolean }) {
   const { t } = useLang();
-  return <main className="bare">{failed ? <div className="empty"><h1 className="h serif">{t('shell.loadFail')}</h1><p className="p">{t('shell.loadFail.p')}</p><button className="btn" onClick={() => window.location.reload()}>{t('common.reload')}</button></div> : <p className="loading" role="status">{t('common.loading')}</p>}</main>;
+  return <main className="bare">{failed ? <div className="empty"><h1 className="h serif">{t('shell.loadFail')}</h1><p className="p">{t('shell.loadFail.p')}</p><button className="btn" onClick={() => window.location.reload()}>{t('common.reload')}</button></div> : <Skeleton label={t('loading.page')}/>}</main>;
 }
 
 function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; children: React.ReactNode }) {
@@ -77,7 +78,7 @@ function Shell({ route,ready,children }: { route: MemberRoute; ready: boolean; c
   };
   return <div className="app">
     <header className="top">
-      <Link href="/home" className="wordmark serif">Sandar</Link>
+      <Link href="/home" className="wordmark-link" aria-label="Sandar"><Wordmark/></Link>
       {route.name !== 'discover' && <form className="top-search" role="search" onSubmit={search}><input className="search" type="search" aria-label={t('search.label')} placeholder={t('search.placeholder')} value={q} maxLength={100} onChange={e => setQ(e.target.value)}/></form>}
       <span className="grow"/>
       <LangSwitch/>

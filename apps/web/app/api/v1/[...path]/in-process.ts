@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { Pool, connection } from '../../../../../../packages/database/src/database';
 import { buildApp } from '../../../../../api/src/app';
 import { ResendEmailProvider } from '../../../../../api/src/notifications/resend-email';
-import { HumanReviewSafetyClassifier } from '../../../../../api/src/spaces/safety';
+import { SelfHarmPhraseClassifier } from '../../../../../api/src/spaces/safety';
 
 // Runs the Sandar API inside the web app (SANDAR_API_MODE=in-process), for
 // serverless hosts such as Netlify that run no separate API server. One small
@@ -37,7 +37,8 @@ function instance() {
     email: new ResendEmailProvider(required('RESEND_API_KEY'), required('EMAIL_FROM'), required('APP_BASE_URL')),
     encryptionKey: required('DATA_ENCRYPTION_KEY'),
     webOrigin: required('APP_BASE_URL'),
-    safety: new HumanReviewSafetyClassifier(),
+    // Posts and comments publish at once; self-harm language is held back with crisis resources.
+    safety: new SelfHarmPhraseClassifier(),
     bffSecret,
     emailFlushSecret: flushSecret
   }))().catch(error => { api = null; throw error; });

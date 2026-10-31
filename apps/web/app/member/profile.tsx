@@ -4,6 +4,7 @@ import type { OnboardingState } from '../../../../packages/contracts/src/onboard
 import { LangSwitch, useLang } from '../i18n';
 import { call, codeOf, memberClient } from './client';
 import { errorKey, label } from './copy';
+import { Skeleton } from './ui';
 
 const CONTACT = 'hellosandar@zohomail.com';
 
@@ -26,7 +27,7 @@ export function Profile() {
     window.location.assign('/login');
   };
   if (error) return <div className="empty"><p className="p">{t(errorKey(error))}</p><button className="btn" onClick={() => void load()}>{t('common.tryAgain')}</button></div>;
-  if (!state) return <p className="loading" role="status">{t('common.loading')}</p>;
+  if (!state) return <Skeleton label={t('loading.page')} variant="page"/>;
   const privacy = state.privacy;
   const needs = state.preferences?.needs ?? [];
   const [before,after] = t('profile.data',{ email: '\u0000' }).split('\u0000');

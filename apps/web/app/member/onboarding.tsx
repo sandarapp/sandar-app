@@ -6,6 +6,7 @@ import { apiLocale, LangSwitch, useLang } from '../i18n';
 import { call, codeOf, memberClient } from './client';
 import { errorKey, label, ruleKeys } from './copy';
 import { HelpButton } from './help';
+import { Skeleton, Wordmark } from './ui';
 
 type Location = NonNullable<OnboardingState['location']>;
 type Need = NonNullable<OnboardingState['preferences']>['needs'][number];
@@ -65,14 +66,14 @@ export function Onboarding() {
   };
 
   const bar = <header className="bar">
-    <span className="wordmark serif">Sandar</span><span className="grow"/>
+    <Wordmark/><span className="grow"/>
     <LangSwitch/><HelpButton/>
     {step < LAST && <button type="button" className="ghost" onClick={() => void saveAndExit()} disabled={leaving || busy}>{t('onb.saveExit')}</button>}
   </header>;
 
   if (!server) return <div className="onb">{bar}<main className="onb-main">{error
     ? <div className="empty"><h1 className="h serif">{t('onb.loadFail')}</h1><p className="p">{t(errorKey(error))}</p><button className="btn" onClick={() => { setError('');void load(); }}>{t('common.tryAgain')}</button></div>
-    : <p className="loading" role="status">{t('common.loading')}</p>}</main></div>;
+    : <Skeleton label={t('loading.page')} variant="page"/>}</main></div>;
 
   const policy = server.policy;
   const choice = (value: string) => label(lang,value);

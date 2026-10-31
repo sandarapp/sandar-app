@@ -107,12 +107,12 @@ describe('member cookie gateway', () => {
     expect((await member(cookie, 'GET', 'moderation/me')).json().data).toEqual({ moderator: false });
   });
 
-  it('keeps comments and unknown paths closed', async () => {
+  it('keeps unknown paths closed', async () => {
     const cookie = await account('member', 'rani@example.invalid');
     await onboard(cookie);
     await member(cookie, 'POST', `spaces/${spaceId}/join`, { accepted: true, guidelinesVersion: 'test-v1' });
     for (const [method, path] of [
-      ['POST', `space-posts/${postId}/comments`], ['POST', 'auth/logout'],
+      ['POST', 'auth/logout'],
       ['GET', 'spaces/not-a-uuid'], ['GET', `spaces/${spaceId}/../../auth/session`], ['PATCH', 'home']
     ] as const) expect((await member(cookie, method, path, method === 'GET' ? undefined : { body: 'x' })).statusCode, `${method} ${path}`).toBe(404);
     expect(await db.query('SELECT 1 FROM space_posts WHERE author_user_id IS NOT NULL')).toMatchObject({ rowCount: 0 });
@@ -149,7 +149,8 @@ describe('member cookie gateway', () => {
     expect(memberRouteAllowed('GET', 'home')).toBe(true);
     expect(memberRouteAllowed('POST', 'home')).toBe(false);
     expect(memberRouteAllowed('POST', `spaces/${randomUUID()}/posts`)).toBe(true);
-    expect(memberRouteAllowed('POST', `space-posts/${randomUUID()}/comments`)).toBe(false);
+    expect(memberRouteAllowed('POST', `space-posts/${randomUUID()}/comments`)).toBe(true);
+    expect(memberRouteAllowed('PATCH', `space-posts/${randomUUID()}/comments`)).toBe(false);
     expect(memberRouteAllowed('GET', 'moderation/queue')).toBe(true);
     expect(memberRouteAllowed('POST', `moderation/posts/${randomUUID()}/decision`)).toBe(true);
     expect(memberRouteAllowed('POST', 'moderation/posts/not-a-uuid/decision')).toBe(false);

@@ -1,6 +1,6 @@
 // Member endpoints the browser may reach through its cookie. Each entry is a
-// method and a path pattern below /v1; anything else is a 404. Posting is open
-// (every post waits for human review); commenting stays absent.
+// method and a path pattern below /v1; anything else is a 404. Members can post
+// and comment where a space allows it; the phrase filter screens both.
 const id = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const memberRoutes: [string, RegExp][] = [
   ['GET', /^users\/me$/],
@@ -18,6 +18,7 @@ const memberRoutes: [string, RegExp][] = [
   ['GET', new RegExp(`^spaces/${id}(/posts)?$`)],
   ['POST', new RegExp(`^spaces/${id}/(join|leave)$`)],
   ['POST', new RegExp(`^spaces/${id}/posts$`)],
+  ['POST', new RegExp(`^space-posts/${id}/comments$`)],
   ['GET', new RegExp(`^space-posts/${id}(/comments)?$`)],
   ['POST', new RegExp(`^space-posts/${id}/reactions$`)],
   ['DELETE', new RegExp(`^space-posts/${id}/reactions/(SUPPORT|RELATE|ENCOURAGEMENT)$`)],
