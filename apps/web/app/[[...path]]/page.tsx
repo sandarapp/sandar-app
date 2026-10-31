@@ -4,7 +4,7 @@ import { MemberApp, type MemberRoute } from '../member/member-app';
 import type { AuthScreen } from '../../../../packages/auth-client/src/links';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function memberRoute(parts: string[]): MemberRoute | null {
-  if (parts.length === 1 && (parts[0] === 'onboarding' || parts[0] === 'home' || parts[0] === 'discover' || parts[0] === 'profile' || parts[0] === 'moderation')) return { name: parts[0] };
+  if (parts.length === 1 && (parts[0] === 'onboarding' || parts[0] === 'home' || parts[0] === 'discover' || parts[0] === 'profile' || parts[0] === 'moderation' || parts[0] === 'welcome')) return { name: parts[0] };
   if (parts.length === 2 && parts[0] === 'spaces' && uuid.test(parts[1]!)) return { name: 'space',id: parts[1]! };
   return null;
 }

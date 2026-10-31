@@ -60,8 +60,8 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
     let active = true;
     resolveDestination(client).then(destination => {
       if (!active) return;
-      if (destination.kind === 'member-onboarding') window.location.replace('/onboarding');
-      else if (destination.kind === 'member-home') window.location.replace('/home');
+      // Members land on the short welcome screen (WA-01b), which routes them on.
+      if (destination.kind === 'member-onboarding' || destination.kind === 'member-home') window.location.replace('/welcome');
       else if (destination.kind === 'community') setCommunity(destination.status);
     }).catch(() => {});
     return () => { active = false; };
@@ -84,6 +84,7 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
     <section className="auth-form">
       <div className="auth-top"><span className="sm">{step}</span><LangSwitch/></div>
       <div className="auth-card">
+        {success && screen === 'verify-email' ? <RegisterSuccess onLogin={() => go('login')}/> : <>
         <h1 className="h serif">{title}</h1>
         <p className="p">{t(`auth.sub.${screen}`)}</p>
         {!online && <p className="alert a-err" role="status">{t('auth.offline')}</p>}
@@ -119,9 +120,24 @@ export function AuthPanel({ initialScreen }: {initialScreen: AuthScreen}) {
           {screen === 'reset-password' && !success && <button className="link-button" onClick={() => go('forgot-password')}>{t('auth.newReset')}</button>}
           {screen === 'register' && <p>{t('auth.emailPrivate')}</p>}
         </nav>}
+        </>}
         <p className="safety sm">{t('auth.safety')}</p>
       </div>
       <footer className="auth-foot sm"><span>© Sandar</span><a href={policyUrl(flow.policies,'PRIVACY_NOTICE')}>{t('auth.privacyLink')}</a></footer>
     </section>
   </main>;
+}
+
+// WA-01c: shown once, right after the email link is confirmed.
+function RegisterSuccess({ onLogin }: { onLogin: () => void }) {
+  const { t } = useLang();
+  const steps = [['rs.s1','rs.required'],['rs.s2','rs.required'],['rs.s3','rs.required'],['rs.s4','rs.optional']] as const;
+  return <div className="stack" role="status">
+    <p className="kk">{t('rs.kicker')}</p>
+    <h1 className="h serif">{t('rs.title')}</h1>
+    <p className="p">{t('rs.lead')}</p>
+    <ol className="setup-steps">{steps.map(([label,kind],i) => <li key={label}><span className="n">{String(i + 1).padStart(2,'0')}</span><span>{t(label)}</span><span className={kind === 'rs.required' ? 'req' : 'opt'}>{t(kind)}</span></li>)}</ol>
+    <button type="button" className="btn wide" onClick={onLogin}>{t('rs.cta')}</button>
+    <p className="sm">{t('rs.note')}</p>
+  </div>;
 }
