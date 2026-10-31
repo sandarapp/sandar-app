@@ -45,7 +45,8 @@ export function addMemberHome(app:FastifyInstance,db:Database){
  app.post('/v1/home/context',req=>run(req,async(tx,userId)=>{
   const v=homeContextInput.parse(req.body);await visible(tx,userId,v.spaceId,true);
   if(v.postId&&!await validPost(tx,userId,v.spaceId,v.postId))throw denied();
-  await tx.query('INSERT INTO member_home_context(user_id,space_id,post_id) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET space_id=$2,post_id=$3,visited_at=now()',[userId,v.spaceId,v.postId??null]);return {saved:true};
+  await tx.query('INSERT INTO member_home_context(user_id,space_id,post_id) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET space_id=$2,post_id=$3,visited_at=now()',[userId,v.spaceId,v.postId??null]);
+  await tx.query("UPDATE space_memberships SET last_read_at=now() WHERE space_id=$1 AND user_id=$2 AND status='JOINED'",[v.spaceId,userId]);return {saved:true};
  }));
  app.post('/v1/home/analytics',req=>run(req,async(tx,userId)=>{
   const v=homeEventInput.parse(req.body);

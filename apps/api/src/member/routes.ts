@@ -7,6 +7,7 @@ import {SecretBox} from '../core/encryption.js';
 import {rateLimit} from '../core/rate-limit.js';
 import {memberRequest,type Member} from '../core/member-request.js';
 import {DevelopmentSafetyClassifier,type SafetyClassifier} from '../spaces/safety.js';
+import {contentLocale} from '../spaces/routes.js';
 
 const fail=(status:number,code:string)=>new ApiError(status,code,'This action is not available.');
 const today="(now() AT TIME ZONE 'Asia/Jakarta')::date";
@@ -77,12 +78,23 @@ export function addMemberExtras(app:FastifyInstance,db:Database,options:{encrypt
  }));
  app.post('/v1/notifications/seen',req=>run(req,240,async(tx,m)=>{await tx.query('UPDATE member_profiles SET notifications_seen_at=now() WHERE user_id=$1',[m.id]);return {seen:true};}));
 
- app.get('/v1/spaces/mine',req=>run(req,0,async(tx,m):Promise<schema.MySpace[]>=>
-  (await tx.query(`SELECT s.id,s.name,s.kind,s.status,s.host_user_id IS NOT DISTINCT FROM $1 AS hosted,COALESCE(x.status='JOINED',false) AS joined,
-    (SELECT max(p.created_at) FROM space_posts p WHERE p.space_id=s.id AND p.status='VISIBLE') AS last_post
-   FROM support_spaces s LEFT JOIN space_memberships x ON x.space_id=s.id AND x.user_id=$1
-   WHERE (x.status='JOINED' AND s.status='ACTIVE') OR s.host_user_id=$1
-   ORDER BY last_post DESC NULLS LAST,s.name LIMIT 50`,[m.id])).rows.map(r=>({id:r.id,name:r.name,kind:r.kind,status:r.status,hosted:r.hosted,joined:r.joined,lastPostAt:r.last_post?.toISOString()??null}))));
+ // Previews follow the same rules as the feed: visible posts only, blocks hide them
+ // either way, and an anonymous post's author never leaves the database.
+ app.get('/v1/spaces/mine',req=>run(req,0,async(tx,m):Promise<schema.MySpace[]>=>{
+  const blocked="NOT EXISTS(SELECT 1 FROM member_blocks b WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=p.author_user_id) OR (b.blocked_user_id=$1 AND b.blocker_user_id=p.author_user_id))";
+  const rows=(await tx.query(`SELECT s.id,COALESCE(t.name,s.name) AS name,s.kind,s.status,s.host_user_id IS NOT DISTINCT FROM $1 AS hosted,COALESCE(x.status='JOINED',false) AS joined,
+    (SELECT count(*)::int FROM space_memberships mm WHERE mm.space_id=s.id AND mm.status='JOINED') AS members,
+    CASE WHEN x.status='JOINED' THEN (SELECT count(*)::int FROM space_posts p WHERE p.space_id=s.id AND p.status='VISIBLE' AND p.created_at>COALESCE(x.last_read_at,x.joined_at) AND p.author_user_id IS DISTINCT FROM $1 AND ${blocked}) ELSE 0 END AS new_posts,
+    l.body,l.identity_mode,l.author,l.created_at AS last_post
+   FROM support_spaces s LEFT JOIN space_memberships x ON x.space_id=s.id AND x.user_id=$1 LEFT JOIN support_space_translations t ON t.space_id=s.id AND t.locale=$2
+   LEFT JOIN LATERAL (SELECT COALESCE(tr.body,p.body) AS body,p.identity_mode,CASE WHEN p.identity_mode='PROFILE' THEN mp.display_name END AS author,p.created_at
+     FROM space_posts p LEFT JOIN member_profiles mp ON mp.user_id=p.author_user_id LEFT JOIN space_post_translations tr ON tr.post_id=p.id AND tr.locale=$2
+     WHERE p.space_id=s.id AND p.status='VISIBLE' AND ${blocked} ORDER BY p.created_at DESC LIMIT 1) l ON true
+   WHERE (x.status='JOINED' AND s.status IN ('ACTIVE','RESTRICTED')) OR s.host_user_id=$1
+   ORDER BY s.host_user_id IS NOT DISTINCT FROM $1 DESC,l.created_at DESC NULLS LAST,s.name LIMIT 50`,[m.id,contentLocale(req)])).rows;
+  return rows.map(r=>({id:r.id,name:r.name,kind:r.kind,status:r.status,hosted:r.hosted,joined:r.joined,memberCount:r.members,newCount:r.new_posts,lastPostAt:r.last_post?.toISOString()??null,
+   preview:r.body?{body:r.body.slice(0,160),identityMode:r.identity_mode,authorName:r.author}:null}));
+ }));
 
  // A member's own view: anonymous posts appear here and nowhere else as theirs.
  app.get('/v1/me/profile',req=>run(req,0,async(tx,m):Promise<schema.MemberProfile>=>{

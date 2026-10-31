@@ -96,6 +96,16 @@ describe('Notifications, My spaces and Profile',()=>{
   expect((await call('GET','/spaces/mine',a)).json().data[0]).toMatchObject({id:spaceId,joined:true,hosted:false});
   expect((await call('GET','/spaces/'+spaceId,a)).statusCode).toBe(200);
  });
+ it('counts new posts since the last visit and keeps anonymous previews anonymous',async()=>{
+  await join(a);await join(b);await post(b,'ANONYMOUS');
+  const mine=(await call('GET','/spaces/mine',a));
+  expect(mine.json().data[0]).toMatchObject({memberCount:2,newCount:1,preview:{identityMode:'ANONYMOUS',authorName:null}});
+  expect(mine.body).not.toContain('Budi');
+  await call('POST','/home/context',a,{spaceId});
+  expect((await call('GET','/spaces/mine',a)).json().data[0].newCount).toBe(0);
+  await post(a);
+  expect((await call('GET','/spaces/mine',a)).json().data[0].newCount).toBe(0);
+ });
  it('shows a member their own anonymous posts, and nobody else',async()=>{
   await join(a);await post(a,'ANONYMOUS');
   await call('PATCH','/me/profile',a,{bio:'Night owl.'});

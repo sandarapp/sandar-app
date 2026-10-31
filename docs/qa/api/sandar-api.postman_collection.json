@@ -1,0 +1,2623 @@
+{
+  "info": {
+    "name": "Sandar API (staging)",
+    "description": "Automation practice against Sandar staging. Import the Sandar Staging environment, then run in order. The API only accepts the x-sandar-client header and an Origin equal to baseUrl. Login sets an HttpOnly cookie, so keep the cookie jar on.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 Auth",
+      "item": [
+        {
+          "name": "Policies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/policies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "policies"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Session without login",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "session"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401',function(){pm.response.to.have.status(401);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login wrong password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"wrong-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401',function(){pm.response.to.have.status(401);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login invalid email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400',function(){pm.response.to.have.status(400);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked: no client header",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403',function(){pm.response.to.have.status(403);});",
+                  "pm.test('error code CSRF_REJECTED',function(){pm.expect(pm.response.json().error.code).to.eql('CSRF_REJECTED');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blocked: wrong origin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Origin",
+                "value": "https://evil.example"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403',function(){pm.response.to.have.status(403);});",
+                  "pm.test('error code CSRF_REJECTED',function(){pm.expect(pm.response.json().error.code).to.eql('CSRF_REJECTED');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"{{memberPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "session"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Spaces and posts",
+      "item": [
+        {
+          "name": "Home",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/home",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "home"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List spaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});",
+                  "const list=pm.response.json().data;const s=list.find(x=>x.membership==='JOINED');pm.test('has joined space',function(){pm.expect(s).to.be.an('object');});",
+                  "pm.environment.set('spaceId',s.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Space detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/{{spaceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "{{spaceId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My spaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "mine"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});",
+                  "pm.test('has counts',function(){pm.expect(pm.response.json().data[0]).to.have.property('newCount');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Posts in space",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/{{spaceId}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "{{spaceId}}",
+                "posts"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/{{spaceId}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "{{spaceId}}",
+                "posts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{$guid}}\",\n  \"identityMode\": \"PROFILE\",\n  \"body\": \"Automation test post.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});",
+                  "pm.environment.set('postId',pm.response.json().data.postId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create anonymous post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/{{spaceId}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "{{spaceId}}",
+                "posts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{$guid}}\",\n  \"identityMode\": \"ANONYMOUS\",\n  \"body\": \"Automation anonymous post.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});",
+                  "pm.environment.set('anonPostId',pm.response.json().data.postId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: empty post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/{{spaceId}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "{{spaceId}}",
+                "posts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{$guid}}\",\n  \"identityMode\": \"PROFILE\",\n  \"body\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400',function(){pm.response.to.have.status(400);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: self-harm text is not stored",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/{{spaceId}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "{{spaceId}}",
+                "posts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{$guid}}\",\n  \"identityMode\": \"PROFILE\",\n  \"body\": \"I want to kill myself\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422',function(){pm.response.to.have.status(422);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: bad space id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/spaces/not-a-uuid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "spaces",
+                "not-a-uuid"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404',function(){pm.response.to.have.status(404);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/space-posts/{{postId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "space-posts",
+                "{{postId}}",
+                "comments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requestId\": \"{{$guid}}\",\n  \"body\": \"Automation comment.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/space-posts/{{postId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "space-posts",
+                "{{postId}}",
+                "comments"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "React",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/space-posts/{{postId}}/reactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "space-posts",
+                "{{postId}}",
+                "reactions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"SUPPORT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove reaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/space-posts/{{postId}}/reactions/SUPPORT",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "space-posts",
+                "{{postId}}",
+                "reactions",
+                "SUPPORT"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Member extras",
+      "item": [
+        {
+          "name": "Mood",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/mood",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "mood"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save mood",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/mood",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "mood"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mood\": \"OKAY\",\n  \"words\": [\n    \"CALM\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: unknown mood",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/mood",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "mood"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mood\": \"HAPPY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400',function(){pm.response.to.have.status(400);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mood export",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/mood/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "mood",
+                "export"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"IDEA\",\n  \"body\": \"Automation feedback.\",\n  \"page\": \"/home\",\n  \"contactOk\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: feedback without text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"IDEA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400',function(){pm.response.to.have.status(400);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "notifications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/me/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "me",
+                "profile"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update bio",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/me/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "me",
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Automation bio.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Events interest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/interest/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "interest",
+                "events"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: after logout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/home",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "home"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401',function(){pm.response.to.have.status(401);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Second member: anonymity and reports",
+      "item": [
+        {
+          "name": "Login as member2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{member2Email}}\",\n  \"password\": \"{{member2Password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Anonymous post hides the author",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/space-posts/{{anonPostId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "space-posts",
+                "{{anonPostId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});",
+                  "const p=pm.response.json().data;pm.test('no real name',function(){pm.expect(pm.response.text()).to.not.include('Ana QA');pm.expect(p.identityMode).to.eql('ANONYMOUS');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Report post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/space-posts/{{postId}}/report",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "space-posts",
+                "{{postId}}",
+                "report"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"OTHER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: member cannot open Ops",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403',function(){pm.response.to.have.status(403);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Ops (staff)",
+      "item": [
+        {
+          "name": "Login as moderator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{moderatorEmail}}\",\n  \"password\": \"{{moderatorPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ops me: second step required",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});",
+                  "pm.test('2FA required',function(){pm.expect(pm.response.json().data.twoFactor).to.eql('REQUIRED');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: dashboard before code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403',function(){pm.response.to.have.status(403);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send email code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/2fa/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "2fa",
+                "send"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "On staging no email is sent. Read the code with SQL: SELECT code FROM staging_emails WHERE template='OPS_CODE' ORDER BY created_at DESC LIMIT 1; then set opsCode in the environment."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: wrong code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/2fa/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "2fa",
+                "verify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400',function(){pm.response.to.have.status(400);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Ops after the code (set opsCode first)",
+      "item": [
+        {
+          "name": "Verify code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/2fa/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "2fa",
+                "verify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{opsCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "reports"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative: moderator cannot list staff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/member/ops/staff",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "member",
+                "ops",
+                "staff"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403',function(){pm.response.to.have.status(403);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-sandar-client",
+                "value": "web"
+              },
+              {
+                "key": "Origin",
+                "value": "{{baseUrl}}"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "en"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/web/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "web",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200',function(){pm.response.to.have.status(200);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
