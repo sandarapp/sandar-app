@@ -42,7 +42,7 @@ test('registration → real development email → verify → login → reset →
   const token=new URL(verification).hash.slice(7);
   expect((await db.query('SELECT used_at FROM action_tokens WHERE user_id=(SELECT id FROM users WHERE email=$1)',[to])).rows[0].used_at).toBeNull();
   await page.getByRole('button',{name:'Verifikasi email',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Email terverifikasi.'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Kamu sudah bergabung. Selamat datang di Sandar.'})).toBeVisible();
   await login(page,to);
   const cookies=await context.cookies();const auth=cookies.find(c=>c.name==='sandar_session');
   expect(auth?.httpOnly).toBe(true);expect(auth?.sameSite).toBe('Strict');
@@ -64,7 +64,7 @@ test('registration → real development email → verify → login → reset →
 test('community email verification never becomes approval or onboarding',async({page})=>{
   const to=`community-${randomUUID()}@example.invalid`;await register(page,to,true);
   await page.goto(await mail(to,'VERIFY_EMAIL'));await page.getByRole('button',{name:'Verifikasi email',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Email terverifikasi.'})).toBeVisible();await login(page,to);
+  await expect(page.getByRole('heading',{name:'Kamu sudah bergabung. Selamat datang di Sandar.'})).toBeVisible();await login(page,to);
   await expect(page.getByText('Onboarding belum dilakukan',{exact:true})).toBeVisible();
   await expect(page.getByText(/Verifikasi email tidak berarti komunitas Anda telah disetujui/)).toBeVisible();
 });

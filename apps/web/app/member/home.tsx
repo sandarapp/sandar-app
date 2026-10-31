@@ -70,6 +70,8 @@ export function Home() {
         <h1 className="display serif">{home.firstVisit ? t('home.titleFirst') : t('home.title')}</h1>
       </header>
 
+      {home.firstVisit && <Tips/>}
+
       {resume && <Link className="resume" href={`/spaces/${resume.id}`}><span className="kk">{t('home.continue')}</span><strong className="serif">{resume.name}</strong><span aria-hidden="true">→</span></Link>}
 
       {notice && <p className="alert a-ok" role="status">{notice}</p>}
@@ -124,4 +126,26 @@ export function SpaceCard({ space,note }: { space: Pick<Space,'id' | 'name'>; no
     <span className="sp-img" style={{ backgroundImage: `url(${spacePhoto(space.id)})` }} aria-hidden="true"/>
     <span className="sp-body"><strong className="serif">{space.name}</strong><span className="sm">{note}</span></span>
   </Link></li>;
+}
+
+// First visit only (Home records the visit, so this never repeats): three short tips.
+function Tips() {
+  const { t } = useLang();
+  const [n,setN] = useState(1),[open,setOpen] = useState(true);
+  useEffect(() => {
+    if (!open) return;
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown',key);
+    return () => document.removeEventListener('keydown',key);
+  },[open]);
+  if (!open) return null;
+  const tips = [['tip.1.t','tip.1.p'],['tip.2.t','tip.2.p'],['tip.3.t','tip.3.p']] as const;
+  const [title,text] = tips[n - 1]!;
+  return <aside className="tip" aria-live="polite" aria-label={t('tip.of',{ n,total: 3 })}>
+    <p className="kk">{t('tip.of',{ n,total: 3 })}</p>
+    <strong className="serif">{t(title)}</strong>
+    <p className="p">{t(text)}</p>
+    <div className="row-between"><button type="button" className="ghost" onClick={() => setOpen(false)}>{t('tip.skip')}</button>
+      {n < 3 ? <button type="button" className="btn small" onClick={() => setN(v => v + 1)}>{t('tip.next')}</button> : <button type="button" className="btn small" onClick={() => setOpen(false)}>{t('tip.done')}</button>}</div>
+  </aside>;
 }

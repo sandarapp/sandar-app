@@ -6,6 +6,7 @@ import { apiLocale, LangSwitch, useLang } from '../i18n';
 import { call, codeOf, memberClient } from './client';
 import { errorKey, label, ruleKeys } from './copy';
 import { HelpButton } from './help';
+import { Done } from './onboarding-done';
 import { Skeleton, Wordmark } from './ui';
 
 type Location = NonNullable<OnboardingState['location']>;
@@ -14,9 +15,9 @@ type Goal = NonNullable<OnboardingState['preferences']>['goals'][number];
 type Format = NonNullable<OnboardingState['preferences']>['communityType'];
 type Privacy = NonNullable<OnboardingState['privacy']>;
 
-const LAST = 10;
+export const LAST = 10;
 const REQUIRED = new Set([1,2,3,8]);
-const stepKeys = ['onb.s0','onb.s1','onb.s2','onb.s3','onb.s4','onb.s5','onb.s6','onb.s7','onb.s8','onb.s9'] as const;
+export const stepKeys = ['onb.s0','onb.s1','onb.s2','onb.s3','onb.s4','onb.s5','onb.s6','onb.s7','onb.s8','onb.s9'] as const;
 const whyKeys = ['onb.w0','onb.w1','onb.w2','onb.w3','onb.w4','onb.w5','onb.w6','onb.w7','onb.w8','onb.w9'] as const;
 const formats: Format[] = ['ONLINE','LOCAL','MIXED','NO_PREFERENCE'];
 const emptyPrivacy: Privacy = { displayName: '',language: 'id-ID',profileVisibility: 'HIDDEN',directoryVisibility: 'HIDDEN',allowAnonymousPosting: true };
@@ -134,10 +135,7 @@ export function Onboarding() {
       </dl>
       <Next onClick={() => void save('/users/me/onboarding/complete',{},LAST,'POST')} busy={busy}>{t('onb.finish')}</Next>
     </Frame>,
-    10: () => <Frame title={t('onb.done')} lead={t('onb.done.p')}>
-      <p className="alert a-info">{t('onb.done.note')}</p>
-      <a className="btn fit" href="/home">{t('common.toHome')}</a>
-    </Frame>
+    10: () => <Done privacy={privacy} needs={needs} goals={goals}/>
   };
 
   return <div className="onb">
@@ -153,7 +151,7 @@ export function Onboarding() {
           </li>;
         })}
       </ol></nav>}
-      <main className="onb-main">
+      <main className={step === LAST ? 'onb-main done' : 'onb-main'}>
         {step < LAST && <div className="onb-meta">
           {step > 0 && <button className="link-button" onClick={back} disabled={busy}>{t('onb.back')}</button>}
           <span className="sm">{t('onb.stepOf',{ n: step + 1,total: LAST })} · {REQUIRED.has(step) ? t('onb.required') : t('onb.optional')}</span>

@@ -14,19 +14,21 @@ import { Discover } from './discover';
 import { SpacePage } from './space';
 import { Profile } from './profile';
 import { Moderation } from './moderation';
+import { Welcome } from './welcome';
 
-export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'profile' } | { name: 'moderation' } | { name: 'space'; id: string };
+export type MemberRoute = { name: 'onboarding' } | { name: 'home' } | { name: 'discover' } | { name: 'profile' } | { name: 'moderation' } | { name: 'welcome' } | { name: 'space'; id: string };
 
 export function MemberApp({ route }: { route: MemberRoute }) {
   const { lang,t } = useLang();
-  const [ready,setReady] = useState(false),[failed,setFailed] = useState(false);
+  const [ready,setReady] = useState(false),[failed,setFailed] = useState(false),[setupLeft,setSetupLeft] = useState(false);
   setApiLocale(apiLocale(lang));
   useEffect(() => {
     let active = true;
     // The server decides where this account may be; the URL is only a wish.
     resolveDestination(routingClient).then(destination => {
       if (!active) return;
-      if (destination.kind === 'member-onboarding') { if (route.name !== 'onboarding') return window.location.replace('/onboarding'); }
+      // The welcome screen (after login) is fine either way; it shows what comes next.
+      if (destination.kind === 'member-onboarding') { setSetupLeft(true);if (route.name !== 'onboarding' && route.name !== 'welcome') return window.location.replace('/onboarding'); }
       else if (destination.kind === 'member-home') { if (route.name === 'onboarding') return window.location.replace('/home'); }
       else return window.location.replace('/account');
       setReady(true);
@@ -39,6 +41,7 @@ export function MemberApp({ route }: { route: MemberRoute }) {
   },[route.name]);
 
   if (route.name === 'onboarding') return ready ? <Onboarding/> : <Bare failed={failed}/>;
+  if (route.name === 'welcome') return ready ? <Welcome onboarding={setupLeft}/> : <Bare failed={failed}/>;
   return <Shell route={route} ready={ready}>
     {failed ? <div className="empty"><h1 className="h serif">{t('shell.loadFail')}</h1><p className="p">{t('shell.loadFail.p')}</p><button className="btn" onClick={() => window.location.reload()}>{t('common.reload')}</button></div>
       : !ready ? <Skeleton label={t('loading.page')}/>
