@@ -116,7 +116,7 @@ export async function buildApp(options: { db: Database; email: EmailProvider; lo
   addMemberSpaces(app,options.db,options.safety);
   if(options.encryptionKey)addMemberExtras(app,options.db,{encryptionKey:options.encryptionKey,safety:options.safety});
   addModeration(app,options.db,auth);
-  if(options.encryptionKey)addOps(app,options.db,auth,{encryptionKey:options.encryptionKey});
+  addOps(app,options.db,auth);
   addSettings(app,options.db,auth);
   addMemberHome(app,options.db);
   addDiscovery(app,options.db);

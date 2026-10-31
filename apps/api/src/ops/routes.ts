@@ -1,4 +1,4 @@
-import {randomUUID} from 'node:crypto';
+import {randomInt,randomUUID} from 'node:crypto';
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import type {Database,Transaction} from '../../../../packages/database/src/database.js';
 import {transaction} from '../../../../packages/database/src/database.js';
@@ -8,9 +8,8 @@ import * as schema from '../../../../packages/contracts/src/ops.js';
 import type {AuthService} from '../auth/service.js';
 import {authorize} from '../auth/authorization.js';
 import {ApiError,invalidSession} from '../core/errors.js';
-import {SecretBox} from '../core/encryption.js';
 import {rateLimit} from '../core/rate-limit.js';
-import {matchStep,newSecret} from './totp.js';
+import {digest} from '../auth/crypto.js';
 
 // Sandar Ops. Every request checks the role, its end date and a fresh second
 // factor here; the menu only reflects this. Anonymous authors stay anonymous,
@@ -41,8 +40,7 @@ export async function requireOps(db:Database,auth:AuthService,request:FastifyReq
  return {id:user.id,roles};
 }
 
-export function addOps(app:FastifyInstance,db:Database,auth:AuthService,options:{encryptionKey:string}){
- const box=new SecretBox(options.encryptionKey);
+export function addOps(app:FastifyInstance,db:Database,auth:AuthService){
  const ALL=schema.staffRoles,REVIEW=['MODERATOR'] as const,ADMINS=['ADMIN','SUPER_ADMIN'] as const,SUPER=['SUPER_ADMIN'] as const;
  const run=async<T>(req:FastifyRequest,roles:readonly schema.StaffRole[],work:(tx:Transaction,staff:{id:string;roles:schema.StaffRole[]})=>Promise<T>)=>{
   const staff=await requireOps(db,auth,req,roles);
@@ -58,34 +56,32 @@ export function addOps(app:FastifyInstance,db:Database,auth:AuthService,options:
  app.get('/v1/ops/me',async req=>{
   const user=await signedIn(req),roles=await activeRoles(db,user.id);
   if(!roles.length)throw forbidden();
-  const row=(await db.query(`SELECT mp.display_name,f.confirmed_at,s.ops_verified_at>now()-${TOTAL} AND s.ops_seen_at>now()-${IDLE} AS fresh FROM sessions s LEFT JOIN member_profiles mp ON mp.user_id=s.user_id LEFT JOIN staff_2fa f ON f.user_id=s.user_id WHERE s.id=$1`,[user.session_id])).rows[0];
-  const me:schema.OpsMe={roles,name:row?.display_name??'Staff',twoFactor:!row?.confirmed_at?'SETUP':row.fresh?'OK':'REQUIRED'};
+  const row=(await db.query(`SELECT mp.display_name,s.ops_verified_at>now()-${TOTAL} AND s.ops_seen_at>now()-${IDLE} AS fresh FROM sessions s LEFT JOIN member_profiles mp ON mp.user_id=s.user_id WHERE s.id=$1`,[user.session_id])).rows[0];
+  const me:schema.OpsMe={roles,name:row?.display_name??'Staff',twoFactor:row?.fresh?'OK':'REQUIRED',email:maskEmail(user.email)};
   return {data:me,error:null};
  });
- // Enrolment shows the secret once per attempt; a confirmed factor is never shown again.
- app.post('/v1/ops/2fa/setup',async req=>{
+ // A new code replaces any earlier one, lasts 10 minutes and works once.
+ app.post('/v1/ops/2fa/send',async req=>{
   const user=await signedIn(req);
   if(!(await activeRoles(db,user.id)).length)throw forbidden();
-  await rateLimit(db,`ops-2fa-setup:${user.id}`,10,3600);
-  const existing=(await db.query('SELECT confirmed_at FROM staff_2fa WHERE user_id=$1',[user.id])).rows[0];
-  if(existing?.confirmed_at)throw new ApiError(409,'OPS_2FA_ALREADY_ON','Autentikator sudah aktif.');
-  const secret=newSecret();
-  await db.query('INSERT INTO staff_2fa(user_id,secret_sealed) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET secret_sealed=$2',[user.id,box.seal(secret,`totp:${user.id}`)]);
-  return {data:{secret,uri:`otpauth://totp/Sandar%20Ops?secret=${secret}&issuer=Sandar`},error:null};
+  await rateLimit(db,`ops-code-send:${user.id}`,5,900);
+  const code=String(randomInt(0,1_000_000)).padStart(6,'0');
+  await transaction(db,async tx=>{
+   await tx.query(`INSERT INTO ops_email_codes(user_id,code_hash,expires_at) VALUES($1,$2,now()+interval '10 minutes') ON CONFLICT(user_id) DO UPDATE SET code_hash=$2,expires_at=EXCLUDED.expires_at`,[user.id,digest(`${user.id}:${code}`)]);
+   await auth.sendOpsCode(tx,user.email,code);
+  });
+  await auth.flushEmails();
+  return {data:{sent:true},error:null};
  });
  app.post('/v1/ops/2fa/verify',async req=>{
-  const user=await signedIn(req),v=schema.totpCode.parse(req.body);
+  const user=await signedIn(req),v=schema.emailCode.parse(req.body);
   if(!(await activeRoles(db,user.id)).length)throw forbidden();
-  await rateLimit(db,`ops-2fa:${user.id}`,5,900);
-  const row=(await db.query('SELECT secret_sealed,last_step,confirmed_at FROM staff_2fa WHERE user_id=$1',[user.id])).rows[0];
-  if(!row)throw new ApiError(400,'OPS_2FA_WRONG','Kode tidak cocok.');
-  const step=matchStep(box.open(row.secret_sealed,`totp:${user.id}`) as string,v.code);
-  // A code that was already used can't be used again.
-  if(step===null||step<=Number(row.last_step))throw new ApiError(400,'OPS_2FA_WRONG','Kode tidak cocok.');
+  await rateLimit(db,`ops-code:${user.id}`,5,900);
   await transaction(db,async tx=>{
-   await tx.query('UPDATE staff_2fa SET last_step=$2,confirmed_at=COALESCE(confirmed_at,now()) WHERE user_id=$1',[user.id,step]);
+   const used=await tx.query('DELETE FROM ops_email_codes WHERE user_id=$1 AND code_hash=$2 AND expires_at>now() RETURNING user_id',[user.id,digest(`${user.id}:${v.code}`)]);
+   if(!used.rowCount)throw new ApiError(400,'OPS_CODE_WRONG','Kode tidak cocok atau sudah kedaluwarsa.');
    await tx.query('UPDATE sessions SET ops_verified_at=now(),ops_seen_at=now() WHERE id=$1',[user.session_id]);
-   await audit(tx,user.id,row.confirmed_at?'SIGN_IN':'ENROL_2FA','STAFF',user.id);
+   await audit(tx,user.id,'SIGN_IN','STAFF',user.id);
   });
   return {data:{verified:true},error:null};
  });
@@ -172,10 +168,10 @@ export function addOps(app:FastifyInstance,db:Database,auth:AuthService,options:
  }));
 
  app.get('/v1/ops/staff',req=>run(req,SUPER,async(tx):Promise<schema.OpsStaff[]>=>{
-  const rows=(await tx.query(`SELECT r.user_id,r.role,r.expires_at,u.email,mp.display_name,f.confirmed_at FROM staff_roles r JOIN users u ON u.id=r.user_id LEFT JOIN member_profiles mp ON mp.user_id=r.user_id LEFT JOIN staff_2fa f ON f.user_id=r.user_id WHERE r.expires_at IS NULL OR r.expires_at>now() ORDER BY mp.display_name,r.role`)).rows;
+  const rows=(await tx.query(`SELECT r.user_id,r.role,r.expires_at,u.email,mp.display_name FROM staff_roles r JOIN users u ON u.id=r.user_id LEFT JOIN member_profiles mp ON mp.user_id=r.user_id WHERE r.expires_at IS NULL OR r.expires_at>now() ORDER BY mp.display_name,r.role`)).rows;
   const staff=new Map<string,schema.OpsStaff>();
   for(const r of rows){
-   const entry:schema.OpsStaff=staff.get(r.user_id)??{userId:r.user_id,name:r.display_name??'Staff',email:maskEmail(r.email),twoFactor:Boolean(r.confirmed_at),grants:[]};
+   const entry:schema.OpsStaff=staff.get(r.user_id)??{userId:r.user_id,name:r.display_name??'Staff',email:maskEmail(r.email),grants:[]};
    entry.grants.push({role:r.role,expiresAt:r.expires_at?.toISOString()??null});staff.set(r.user_id,entry);
   }
   return [...staff.values()];
@@ -204,13 +200,6 @@ export function addOps(app:FastifyInstance,db:Database,auth:AuthService,options:
   await endOpsAccess(tx,v.userId);
   await audit(tx,staff.id,v.role?'REVOKE_ROLE:'+v.role:'REMOVE_ALL_ACCESS','STAFF',v.userId,v.reason);
   return {userId:v.userId};
- }));
- app.post('/v1/ops/staff/:id/reset-2fa',req=>run(req,SUPER,async(tx,staff)=>{
-  const id=idOf(req),v=schema.reasonInput.parse(req.body);
-  if(id===staff.id)throw new ApiError(409,'OPS_NOT_YOURSELF','Tidak bisa untuk akun sendiri.');
-  await tx.query('DELETE FROM staff_2fa WHERE user_id=$1',[id]);await endOpsAccess(tx,id);
-  await audit(tx,staff.id,'RESET_2FA','STAFF',id,v.reason);
-  return {userId:id};
  }));
  app.get('/v1/ops/audit',req=>run(req,SUPER,async(tx):Promise<schema.OpsAuditEntry[]>=>
   (await tx.query('SELECT a.*,mp.display_name FROM ops_audit a LEFT JOIN member_profiles mp ON mp.user_id=a.actor_user_id ORDER BY a.created_at DESC LIMIT 200')).rows.map(a=>({id:a.id,actor:a.display_name??'Staff',action:a.action,targetType:a.target_type,targetId:a.target_id,reason:a.reason,at:a.created_at.toISOString()}))));

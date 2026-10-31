@@ -21,6 +21,7 @@ export class AuthService {
     return new AuthService(db, new EmailOutbox(db, email, encryptionKey, onEmailFailure), await hashPassword(newToken()));
   }
   async flushEmails() { await this.outbox.flush(); }
+  async sendOpsCode(tx: Transaction, to: string, code: string) { await this.outbox.enqueue(tx, { to, template: 'OPS_CODE', code }); }
   async notifySpaceReviewed(tx: Transaction, userId: string) {
     const user = (await tx.query('SELECT email FROM users WHERE id=$1',[userId])).rows[0];
     if (user) await this.outbox.enqueue(tx, { to: user.email, template: 'SPACE_REVIEWED' });
