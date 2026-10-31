@@ -3,6 +3,7 @@ import {addCommunityRouting} from './community-routing/routes.js';
 import {addMemberHome} from './home/routes.js';
 import type {SafetyClassifier} from './spaces/safety.js';
 import {addSpaces} from './spaces/routes.js';
+import {addMemberSpaces} from './spaces/member-spaces.js';
 import {addModeration} from './moderation/routes.js';
 import {addSettings} from './settings/routes.js';
 import { addOnboarding } from './onboarding/routes.js';
@@ -110,6 +111,7 @@ export async function buildApp(options: { db: Database; email: EmailProvider; lo
   app.get('/v1/users/me',async request => ok(publicUser(await auth.authenticate(bearer(request.headers.authorization)))));
   addOnboarding(app,options.db,auth);
   addSpaces(app,options.db,options.safety);
+  addMemberSpaces(app,options.db,options.safety);
   addModeration(app,options.db,auth);
   addSettings(app,options.db,auth);
   addMemberHome(app,options.db);

@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DiscoveryData } from '../../../../packages/contracts/src/discovery';
+import type { MemberSpaceSummary } from '../../../../packages/contracts/src/member-spaces';
 import type { HomeData } from '../../../../packages/contracts/src/home';
 import type { OnboardingState } from '../../../../packages/contracts/src/onboarding';
 import type { Space, SpacePost } from '../../../../packages/contracts/src/spaces';
@@ -9,10 +10,17 @@ import { useLang } from '../i18n';
 import { call, codeOf } from './client';
 import { errorKey, label, spacePhoto } from './copy';
 import { Composer, Post } from './space';
+import { CreateSpace } from './create-space';
+import { SpaceInvite } from './invite';
 import { Skeleton } from './ui';
 import { communityFlow } from '../flags';
 
 type FeedItem = { post: SpacePost; space: Space };
+const FEED_SPACES = 12;
+const CARD_DISMISSED = 'sandar.startSpaceCardDismissed';
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+
+function cardDismissed() { try { return window.localStorage.getItem(CARD_DISMISSED) === '1'; } catch { return false; } }
 
 // Home: post and read in the middle, spaces on the side. Every member reads every
 // space here; one who hasn't joined anything yet sees the official spaces first.
@@ -21,11 +29,13 @@ export function Home() {
   const [home,setHome] = useState<HomeData | null>(null),[spaces,setSpaces] = useState<Space[]>([]),[error,setError] = useState('');
   const [feed,setFeed] = useState<FeedItem[] | null>(null),[notice,setNotice] = useState(''),[feedError,setFeedError] = useState('');
   const [needs,setNeeds] = useState<string[]>([]),[topics,setTopics] = useState<Record<string,string[]>>({});
+  const [hosted,setHosted] = useState<MemberSpaceSummary[] | null>(null),[setupAt,setSetupAt] = useState<string | null>(null);
+  const [invite,setInvite] = useState(true),[creating,setCreating] = useState(false),[cardOff,setCardOff] = useState(cardDismissed);
   const visit = useRef(false);
 
-  // Posts from every readable space, newest first. Four official spaces at most, so one request each.
+  // Posts from readable spaces, newest first, one request per space: joined spaces first, then up to the cap.
   const loadFeed = useCallback(async (list: Space[]) => {
-    const readable = list.filter(s => s.permissions.read);
+    const readable = list.filter(s => s.permissions.read).sort((a,b) => Number(b.membership === 'JOINED') - Number(a.membership === 'JOINED')).slice(0,FEED_SPACES);
     const pages = await Promise.all(readable.map(s => call<SpacePost[]>(`/spaces/${s.id}/posts`).then(posts => posts.map(post => ({ post,space: s }))).catch(() => [])));
     setFeed(pages.flat().sort((a,b) => b.post.createdAt.localeCompare(a.post.createdAt)).slice(0,40));
   },[]);
@@ -35,9 +45,10 @@ export function Home() {
       const [h,s] = await Promise.all([call<HomeData>('/home'),call<Space[]>('/spaces')]);
       setHome(h);setSpaces(s);
       void loadFeed(s);
+      void call<MemberSpaceSummary[]>('/member-spaces/mine').then(setHosted).catch(() => setHosted([]));
       // Only used to explain a pick ("because you chose …"); Home works without it.
       void Promise.all([call<OnboardingState>('/users/me/onboarding'),call<DiscoveryData>('/discovery/search',{ method: 'POST',body: { q: '',topics: [],page: 0 } })])
-        .then(([o,d]) => { setNeeds(o.preferences?.needs ?? []);setTopics(Object.fromEntries(d.results.map(r => [r.id,r.topics]))); }).catch(() => {});
+        .then(([o,d]) => { setSetupAt(o.completedAt ?? null);setNeeds(o.preferences?.needs ?? []);setTopics(Object.fromEntries(d.results.map(r => [r.id,r.topics]))); }).catch(() => {});
     } catch (e) { setError(codeOf(e)); }
   },[loadFeed]);
   useEffect(() => {
@@ -55,6 +66,11 @@ export function Home() {
   const joined = spaces.filter(s => s.membership === 'JOINED');
   const others = spaces.filter(s => s.membership !== 'JOINED' && s.permissions.join);
   const postable = joined.filter(s => s.permissions.post);
+  const hosting = hosted === null || hosted.some(s => s.status !== 'NOT_APPROVED');
+  const showInvite = home.firstVisit && invite && !hosting;
+  // A quiet reminder after a week, until they start a space or dismiss it for good.
+  const showCard = !home.firstVisit && !hosting && !cardOff && setupAt !== null && Date.now() - new Date(setupAt).getTime() > WEEK;
+  const dismissCard = () => { setCardOff(true);try { window.localStorage.setItem(CARD_DISMISSED,'1'); } catch { /* Only lasts this visit then. */ } };
   const resume = home.continueContext && spaces.find(s => s.id === home.continueContext!.spaceId);
   const reason = (s: Space) => {
     const match = needs.find(n => topics[s.id]?.includes(n));
@@ -70,7 +86,10 @@ export function Home() {
         <h1 className="display serif">{home.firstVisit ? t('home.titleFirst') : t('home.title')}</h1>
       </header>
 
-      {home.firstVisit && <Tips/>}
+      {home.firstVisit && !showInvite && hosted !== null && <Tips/>}
+      {showInvite && <SpaceInvite name={home.displayName} onStart={() => { setInvite(false);setCreating(true); }} onClose={() => setInvite(false)}/>}
+      {creating && <CreateSpace onClose={() => setCreating(false)}/>}
+      {showCard && <aside className="side-card stack-sm"><strong className="serif">{t('invite.card.t')}</strong><p className="sm">{t('invite.card.p')}</p><div className="row-between"><button type="button" className="ghost" onClick={dismissCard}>{t('invite.card.off')}</button><button type="button" className="btn small" onClick={() => setCreating(true)}>{t('invite.start')}</button></div></aside>}
 
       {resume && <Link className="resume" href={`/spaces/${resume.id}`}><span className="kk">{t('home.continue')}</span><strong className="serif">{resume.name}</strong><span aria-hidden="true">→</span></Link>}
 
@@ -80,7 +99,7 @@ export function Home() {
       {joined.length === 0 ? <section className="stack">
         <p className="p">{t('home.startJoin')}</p>
         <h2 className="kk">{t('home.official')}</h2>
-        <ul className="grid">{others.map(s => <SpaceCard key={s.id} space={s} note={reason(s)}/>)}</ul>
+        <ul className="grid">{others.slice(0,9).map(s => <SpaceCard key={s.id} space={s} note={reason(s)}/>)}</ul>
       </section> : postable.length > 0 ? <Composer spaces={postable} onSent={async () => { setNotice(t('compose.sent'));await loadFeed(spaces); }}/>
         : <p className="alert a-info"><strong>{t('closed.title')}</strong> {t('closed.home')}</p>}
       <section className="stack" aria-label={t('home.feed')}>
@@ -92,13 +111,17 @@ export function Home() {
     </div>
 
     <aside className="home-side">
+      {hosted !== null && hosted.length > 0 && <section className="stack-sm">
+        <h2 className="kk">{t('home.hosting')}</h2>
+        <ul className="stack-xs">{hosted.map(s => <li key={s.id}><Link href={`/spaces/${s.id}`} className="sm-link">{s.name}</Link> <span className="sm">· {t(`cs.status.${s.status}`)}</span></li>)}</ul>
+      </section>}
       {joined.length > 0 && <section className="stack-sm">
         <h2 className="kk">{t('home.yourSpaces')}</h2>
         <ul className="mini-list">{joined.map(s => <MiniSpace key={s.id} space={s} note={t('home.joined')}/>)}</ul>
       </section>}
       {joined.length > 0 && others.length > 0 && <section className="stack-sm">
         <h2 className="kk">{t('home.otherSpaces')}</h2>
-        <ul className="mini-list">{others.map(s => <MiniSpace key={s.id} space={s} note={reason(s)}/>)}</ul>
+        <ul className="mini-list">{others.slice(0,8).map(s => <MiniSpace key={s.id} space={s} note={reason(s)}/>)}</ul>
       </section>}
       {communityFlow && <section className="stack-sm">
         <div className="row-between"><h2 className="kk">{t('home.verified')}</h2><Link href="/discover" className="sm-link">{t('home.seeAll')}</Link></div>

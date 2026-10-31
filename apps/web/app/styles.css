@@ -352,3 +352,25 @@ a.chip-tag:hover{background:var(--sel);color:var(--ink)}
 }
 @media(max-width:420px){.lang button{min-width:34px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* WA-02c, WA-03c: invitation, boundaries, create a space */
+.invite-modal{width:min(520px,100%)}
+.invite-modal.wide{width:min(760px,100%)}
+.invite-art{height:130px;border-radius:18px;overflow:hidden;position:relative;background:var(--bg2,#FCEBDD)}
+.invite-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice{display:flex;flex-direction:column;gap:6px;text-align:left;padding:14px;border-radius:16px;border:1px solid var(--line,#EAD6C5);background:#fff;cursor:pointer;color:inherit;font:inherit;min-height:44px}
+.choice:hover,.choice:focus-visible{border-color:var(--primary,#B65031)}
+.fit.center{align-self:center}
+.bound-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.bound-list{display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5;list-style:none;padding:0;margin:0}
+.create-modal{width:min(600px,100%)}
+.rule-row{display:flex;gap:8px;align-items:center}
+.rule-row .in{flex:1;min-width:0}
+fieldset.plain{border:0;padding:0;margin:0}
+@media (max-width:640px){.invite-choices,.bound-cols{grid-template-columns:1fr}}
+.invite-art{height:170px}
+.invite-art .illu{position:absolute;left:0;top:auto;bottom:-70px;width:100%;height:auto;aspect-ratio:460/420;display:block}
+@media (max-width:640px){
+  .invite-modal,.invite-modal.wide,.create-modal{width:100%;box-sizing:border-box;border-radius:24px 24px 0 0;max-height:100svh}
+  .invite-choices>*,.bound-cols>*{min-width:0}
+}

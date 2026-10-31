@@ -23,6 +23,9 @@ const memberRoutes: [string, RegExp][] = [
   ['POST', new RegExp(`^space-posts/${id}/reactions$`)],
   ['DELETE', new RegExp(`^space-posts/${id}/reactions/(SUPPORT|RELATE|ENCOURAGEMENT)$`)],
   ['POST', new RegExp(`^space-(posts|comments)/${id}/(report|block-author)$`)],
+  ['GET', /^member-spaces\/mine$/],
+  ['POST', /^member-spaces$/],
+  ['PATCH', new RegExp(`^member-spaces/${id}$`)],
   ['GET', /^community-applications\/me$/],
   ['PATCH', /^settings\/(privacy|preferences|location)$/],
   ['POST', /^settings\/(password|sessions\/revoke-others)$/],
@@ -30,7 +33,8 @@ const memberRoutes: [string, RegExp][] = [
   ['POST', /^settings\/blocks\/[0-9a-f]{32}\/unblock$/],
   ['GET', /^moderation\/(me|queue)$/],
   ['POST', new RegExp(`^moderation/posts/${id}/decision$`)],
-  ['POST', new RegExp(`^moderation/reports/${id}/dismiss$`)]
+  ['POST', new RegExp(`^moderation/reports/${id}/dismiss$`)],
+  ['POST', new RegExp(`^moderation/spaces/${id}/decision$`)]
 ];
 export function memberRouteAllowed(method: string, path: string) {
   return memberRoutes.some(([m, pattern]) => m === method && pattern.test(path));
