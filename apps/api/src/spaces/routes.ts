@@ -31,7 +31,9 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database row
  function projectSpace(row:Record<string,any>):schema.Space{
   const joined=row.status==='ACTIVE'&&row.membership==='JOINED';
-  return {id:row.id,kind:'OFFICIAL_SANDAR',label:'Official Sandar Space',name:row.name,purpose:row.purpose,audience:row.audience,topic:row.topic,operator:row.operator_name,status:row.status,guidelinesVersion:row.guidelines_version,developmentSample:row.development_sample,membership:row.membership??'NOT_JOINED',permissions:{join:row.status==='ACTIVE'&&!['BANNED','RESTRICTED','JOINED'].includes(row.membership),read:joined,post:joined&&row.posting_enabled,comment:joined&&row.commenting_enabled,anonymous:joined&&row.anonymous_allowed}};
+  // Every onboarded member can read an active space; posting and replying follow the join, which accepts the guidelines.
+  const shut=['BANNED','RESTRICTED'].includes(row.membership);
+  return {id:row.id,kind:'OFFICIAL_SANDAR',label:'Official Sandar Space',name:row.name,purpose:row.purpose,audience:row.audience,topic:row.topic,operator:row.operator_name,status:row.status,guidelinesVersion:row.guidelines_version,developmentSample:row.development_sample,membership:row.membership??'NOT_JOINED',permissions:{join:row.status==='ACTIVE'&&!['BANNED','RESTRICTED','JOINED'].includes(row.membership),read:row.status==='ACTIVE'&&!shut,post:joined&&row.posting_enabled,comment:joined&&row.commenting_enabled,anonymous:joined&&row.anonymous_allowed}};
  }
  async function space(tx:Transaction,userId:string,id:string,locale='id-ID'):Promise<schema.Space>{
   const row=(await tx.query(`${spaceSql} AND s.id=$3`,[userId,locale,id])).rows[0];
@@ -41,6 +43,7 @@ export function addSpaces(app:FastifyInstance,db:Database,safety:SafetyClassifie
  function requirePermission(s:schema.Space,permission:'read'|'post'|'comment'){
   if(s.status!=='ACTIVE')throw fail('SPACE_RESTRICTED');
   if(!s.permissions.read)throw fail('MEMBERSHIP_REQUIRED');
+  if(permission!=='read'&&s.membership!=='JOINED')throw fail('MEMBERSHIP_REQUIRED');
   if(!s.permissions[permission])throw fail(permission==='post'?'POSTING_DISABLED':'COMMENTING_DISABLED');
  }
  // Self-harm language is never published; the client shows crisis resources instead.
