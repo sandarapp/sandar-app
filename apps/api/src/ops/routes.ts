@@ -62,15 +62,20 @@ export function addOps(app:FastifyInstance,db:Database,auth:AuthService,options:
   const me:schema.OpsMe={roles,name:row?.display_name??'Staff',twoFactor:!row?.confirmed_at?'SETUP':row.fresh?'OK':'REQUIRED'};
   return {data:me,error:null};
  });
- // Enrolment shows the secret once per attempt; a confirmed factor is never shown again.
+ // Until a code confirms it, the same key comes back on every visit, so a reload
+ // can't invalidate what's already in the authenticator app.
  app.post('/v1/ops/2fa/setup',async req=>{
   const user=await signedIn(req);
   if(!(await activeRoles(db,user.id)).length)throw forbidden();
-  await rateLimit(db,`ops-2fa-setup:${user.id}`,10,3600);
-  const existing=(await db.query('SELECT confirmed_at FROM staff_2fa WHERE user_id=$1',[user.id])).rows[0];
+  const existing=(await db.query('SELECT secret_sealed,confirmed_at FROM staff_2fa WHERE user_id=$1',[user.id])).rows[0];
   if(existing?.confirmed_at)throw new ApiError(409,'OPS_2FA_ALREADY_ON','Autentikator sudah aktif.');
-  const secret=newSecret();
-  await db.query('INSERT INTO staff_2fa(user_id,secret_sealed) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET secret_sealed=$2',[user.id,box.seal(secret,`totp:${user.id}`)]);
+  let secret:string;
+  if(existing)secret=box.open(existing.secret_sealed,`totp:${user.id}`) as string;
+  else{
+   await rateLimit(db,`ops-2fa-setup:${user.id}`,10,3600);
+   secret=newSecret();
+   await db.query('INSERT INTO staff_2fa(user_id,secret_sealed) VALUES($1,$2)',[user.id,box.seal(secret,`totp:${user.id}`)]);
+  }
   return {data:{secret,uri:`otpauth://totp/Sandar%20Ops?secret=${secret}&issuer=Sandar`},error:null};
  });
  app.post('/v1/ops/2fa/verify',async req=>{

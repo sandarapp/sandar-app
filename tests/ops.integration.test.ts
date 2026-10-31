@@ -51,6 +51,8 @@ describe('Second factor',()=>{
   expect((await call('GET','/ops/reports',mod)).json().error.code).toBe('OPS_2FA_REQUIRED');
   expect((await call('GET','/moderation/queue',mod)).json().error.code).toBe('OPS_2FA_REQUIRED');
   const {secret}=(await call('POST','/ops/2fa/setup',mod,{})).json().data;
+  // Reloading the page must not replace a key already added to the app.
+  expect((await call('POST','/ops/2fa/setup',mod,{})).json().data.secret).toBe(secret);
   expect((await db.query('SELECT secret_sealed FROM staff_2fa')).rows[0].secret_sealed).not.toContain(secret);
   expect((await call('POST','/ops/2fa/verify',mod,{code:'000000'})).json().error.code).toBe('OPS_2FA_WRONG');
   const code=codeAt(secret,currentStep());
