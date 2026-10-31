@@ -1,5 +1,12 @@
 # Roadmap: from launch to payments
 
+> **Note (25 Oct 2026):** after Phase 1, the phase order below is superseded by
+> [roadmap-validation-pilot.md](roadmap-validation-pilot.md). The 8-week
+> validation pilot (to 27 Dec 2026) builds funnel instrumentation, free
+> Komunitas Pendiri activities, member payment for programmes and a Community
+> Plus interest page. The remaining phases here are deferred, each with the
+> evidence gate listed in that document.
+
 Each phase ships on its own and has a clear "done when". A phase starts only
 when the one before it is live, because each depends on the trust and tools
 the previous one builds. Payments come last on purpose: money raises the
@@ -71,13 +78,15 @@ Done when: communities and Sandar run free events end to end.
 Legal and operational groundwork comes first; none of it is code.
 1. Company and compliance: PSE registration with Kominfo (private scope),
    tax setup for PPN on digital services, refund and cancellation policy,
-   payment terms for communities and the training partner (never named in the
-   product), updated Privacy Notice.
+   payment terms for communities and the training partner, updated Privacy
+   Notice. Every seller (Sandar or the named community) and the refund policy
+   version are shown to the buyer before payment; there are no hidden or
+   unnamed sellers.
 2. Payment gateway: choose Midtrans or Xendit (QRIS, virtual accounts,
    e-wallets, cards); open a merchant account; sandbox keys.
-3. Catalogue: paid programs and trainings with price, seller (Sandar, a
-   verified community, or Sandar selling partner training) and refund terms
-   shown before payment. Turn on `ENABLE_PAID_PROGRAMS` per product.
+3. Catalogue: paid programs and trainings with price, named seller (Sandar
+   or a verified community; partner training is sold by Sandar) and refund
+   policy version shown before payment. Turn on `ENABLE_PAID_PROGRAMS` per product.
 4. Checkout and orders: hosted checkout, idempotent webhooks, order and
    enrollment records, receipts by email, failed and expired payments.
 5. Refunds: member request, review in the CMS, gateway refund, audit trail.
